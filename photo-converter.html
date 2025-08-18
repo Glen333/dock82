@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Photo to Data URL Converter</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .result { background: #f0f0f0; padding: 20px; margin: 20px 0; word-break: break-all; }
+        button { padding: 10px 20px; margin: 10px 0; }
+        input[type="file"] { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Photo to Data URL Converter</h1>
+        <p>Upload your local photo to convert it to a data URL for the dock rental app:</p>
+        
+        <input type="file" id="photoInput" accept="image/*">
+        <br>
+        <button onclick="convertPhoto()">Convert Photo</button>
+        
+        <div id="result" class="result" style="display: none;">
+            <h3>Your Data URL:</h3>
+            <p id="dataUrl"></p>
+            <button onclick="copyToClipboard()">Copy to Clipboard</button>
+        </div>
+    </div>
+
+    <script>
+        function convertPhoto() {
+            const fileInput = document.getElementById('photoInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a photo first!');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const dataUrl = e.target.result;
+                document.getElementById('dataUrl').textContent = dataUrl;
+                document.getElementById('result').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function copyToClipboard() {
+            const dataUrl = document.getElementById('dataUrl').textContent;
+            navigator.clipboard.writeText(dataUrl).then(() => {
+                alert('Data URL copied to clipboard! Send this to the assistant.');
+            });
+        }
+    </script>
+</body>
+</html>

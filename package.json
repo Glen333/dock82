@@ -1,0 +1,48 @@
+{
+  "name": "dock-rental-platform",
+  "version": "1.0.0",
+  "description": "Professional dock rental management platform",
+  "main": "index.js",
+  "homepage": ".",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "dependencies": {
+    "@stripe/react-stripe-js": "^3.8.0",
+    "@stripe/stripe-js": "^2.1.11",
+    "@supabase/supabase-js": "^2.55.0",
+    "@vercel/postgres": "^0.10.0",
+    "lucide-react": "^0.263.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "^5.0.1",
+    "stripe": "^18.4.0",
+    "tailwindcss": "^3.4.17"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.4.31",
+    "serve": "^14.2.4"
+  },
+  "overrides": {
+    "nth-check": "^2.0.1",
+    "on-headers": "^1.1.0",
+    "webpack-dev-server": "^5.2.0",
+    "resolve-url-loader": "^5.0.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

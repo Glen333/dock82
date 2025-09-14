@@ -665,7 +665,10 @@ const DockRentalPlatform = () => {
   };
 
   const handleSetAerialPhotoForAll = async () => {
-    const aerialPhotoUrl = prompt('Enter the URL for your aerial dock photo:', 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop&crop=center');
+    const aerialPhotoUrl = prompt(
+      'Enter the URL for your aerial dock photo:', 
+      'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop&crop=center'
+    );
     
     if (!aerialPhotoUrl) {
       alert('No URL provided. Operation cancelled.');
@@ -673,37 +676,47 @@ const DockRentalPlatform = () => {
     }
     
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/slips`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'update-images',
-          imageUrl: aerialPhotoUrl
-        }),
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          // Update local state
-          const updatedSlips = slips.map(slip => ({
-            ...slip,
-            images: aerialPhotoUrl
-          }));
-          setSlips(updatedSlips);
-          
-          alert(`✅ All ${updatedSlips.length} dock slips have been updated with your aerial photo!\n\nChanges have been saved to the database and will persist across sessions.`);
-        } else {
-          alert('Failed to update slip images: ' + result.error);
+      let successCount = 0;
+      for (const slip of slips) {
+        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/slips`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'update-slip',
+            slipId: slip.id,
+            slipData: {
+              name: slip.name,
+              description: slip.description,
+              pricePerNight: slip.pricePerNight,
+              images: aerialPhotoUrl,
+              dock_etiquette: slip.dockEtiquette
+            }
+          }),
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            successCount++;
+          }
         }
+      }
+      
+      if (successCount > 0) {
+        const updatedSlips = slips.map(slip => ({
+          ...slip,
+          images: aerialPhotoUrl
+        }));
+        setSlips(updatedSlips);
+        alert(`✅ Successfully updated ${successCount} dock slips with your aerial photo!`);
       } else {
-        throw new Error('Failed to update slip images');
+        alert('❌ Failed to update slip images. Please try again.');
       }
     } catch (error) {
       console.error('Error updating slip images:', error);
-      alert('❌ Failed to update slip images. Please try again or contact support.');
+      alert('❌ Failed to update slip images. Please try again.');
     }
   };
 
@@ -711,8 +724,8 @@ const DockRentalPlatform = () => {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
-      if (!file.type.match('image/jpeg') && !file.type.match('image/jpg')) {
-        alert('❌ Please select a JPEG/JPG file only.');
+      if (!file.type.match('image.*')) {
+        alert('Please select an image file');
         return;
       }
       
@@ -734,45 +747,50 @@ const DockRentalPlatform = () => {
 
   const handleSaveImage = async () => {
     if (editingSlip && editingImage) {
+      setIsUploading(true);
       try {
-        // Upload image to the new API endpoint
-        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/upload-image`, {
+        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/slips`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            action: 'upload-image',
+            action: 'update-slip',
             slipId: editingSlip.id,
-            imageData: editingImage,
-            imageName: `slip_${editingSlip.id}_${Date.now()}.jpg`
+            slipData: {
+              name: editingSlip.name,
+              description: editingSlip.description,
+              pricePerNight: editingSlip.pricePerNight,
+              images: editingImage,
+              dock_etiquette: editingSlip.dockEtiquette
+            }
           }),
         });
         
         if (response.ok) {
           const result = await response.json();
           if (result.success) {
-            // Update local state with the new image URL
             const updatedSlips = slips.map(slip => 
               slip.id === editingSlip.id 
-                ? { ...slip, images: [result.imageUrl] }
+                ? { ...slip, images: editingImage }
                 : slip
             );
             setSlips(updatedSlips);
             setEditingSlip(null);
             setEditingImage('');
             setImageFile(null);
-            alert('✅ JPEG image uploaded and saved to database successfully!');
+            alert('✅ Image updated successfully!');
           } else {
-            alert('❌ Failed to upload image: ' + result.error);
+            alert('❌ Failed to update image: ' + (result.error || 'Unknown error'));
           }
         } else {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to upload image');
+          alert('❌ Failed to update image: Server error');
         }
       } catch (error) {
-        console.error('Error uploading image:', error);
-        alert('❌ Failed to upload image. Please try again.');
+        console.error('Error updating image:', error);
+        alert('❌ Failed to update image. Please try again.');
+      } finally {
+        setIsUploading(false);
       }
     }
   };
@@ -1162,9 +1180,12 @@ const DockRentalPlatform = () => {
   const SlipCard = ({ slip }) => (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
       <img 
-        src={slip.images[0]} 
+        src={slip.images || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop&crop=center'} 
         alt={slip.name}
         className="w-full h-48 object-cover"
+        onError={(e) => {
+          e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+        }}
       />
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
@@ -2173,43 +2194,27 @@ const DockRentalPlatform = () => {
 
   // Load data from API on component mount
   useEffect(() => {
+    // Clear old localStorage to prevent conflicts
+    localStorage.removeItem('dockSlipsData');
+    localStorage.removeItem('dockSlipImages');
+    
     const loadData = async () => {
       try {
-        // Load slips from API (database will auto-initialize if needed)
+        // Load slips from API
         const slipsResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/slips`);
         if (slipsResponse.ok) {
           const slipsData = await slipsResponse.json();
-          const slipsWithImages = slipsData.slips || [];
+          const slipsArray = slipsData.slips || [];
           
-          // Load images for each slip from the database
-          const slipsWithLoadedImages = await Promise.all(
-            slipsWithImages.map(async (slip) => {
-              try {
-                const imageResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/upload-image`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    action: 'get-image',
-                    slipId: slip.id
-                  }),
-                });
-                
-                if (imageResponse.ok) {
-                  const imageData = await imageResponse.json();
-                  if (imageData.success && imageData.images && imageData.images.length > 0) {
-                    return { ...slip, images: imageData.images };
-                  }
-                }
-              } catch (error) {
-                console.error(`Error loading image for slip ${slip.id}:`, error);
-              }
-              return slip;
-            })
-          );
+          // Normalize images to strings (not arrays)
+          const normalizedSlips = slipsArray.map(slip => ({
+            ...slip,
+            images: Array.isArray(slip.images) 
+              ? slip.images[0] 
+              : (slip.images || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop&crop=center')
+          }));
           
-          setSlips(slipsWithLoadedImages);
+          setSlips(normalizedSlips);
         }
 
         // Load bookings from API
@@ -2238,24 +2243,52 @@ const DockRentalPlatform = () => {
   }, []);
 
   // Function to reset all images to default
-  const handleResetAllImages = () => {
-    const aerialDockImage = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop&crop=center';
-    const updatedSlips = slips.map(slip => ({
-      ...slip,
-      images: aerialDockImage
-    }));
-    setSlips(updatedSlips);
+  const handleResetAllImages = async () => {
+    const defaultImage = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop&crop=center';
     
-    // Save to localStorage
-    localStorage.setItem('dockSlipImages', JSON.stringify(updatedSlips.map(slip => ({
-      id: slip.id,
-      images: slip.images
-    }))));
+    if (!confirm('This will reset all slip images to the default. Continue?')) {
+      return;
+    }
     
-    // Also save the complete slip data
-    localStorage.setItem('dockSlipsData', JSON.stringify(updatedSlips));
-    
-    alert('All dock slip images have been updated with the aerial dock photo!');
+    try {
+      let successCount = 0;
+      for (const slip of slips) {
+        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/slips`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'update-slip',
+            slipId: slip.id,
+            slipData: {
+              name: slip.name,
+              description: slip.description,
+              pricePerNight: slip.pricePerNight,
+              images: defaultImage,
+              dock_etiquette: slip.dockEtiquette
+            }
+          }),
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            successCount++;
+          }
+        }
+      }
+      
+      const updatedSlips = slips.map(slip => ({
+        ...slip,
+        images: defaultImage
+      }));
+      setSlips(updatedSlips);
+      alert(`✅ Reset ${successCount} dock slip images to default!`);
+    } catch (error) {
+      console.error('Error resetting images:', error);
+      alert('❌ Failed to reset images. Please try again.');
+    }
   };
 
 
@@ -3357,44 +3390,77 @@ const DockRentalPlatform = () => {
                       {editingSlip?.id === slip.id && editingSlip.editingType === 'image' ? (
                         <div className="space-y-2 mt-3">
                           <label className="block text-sm font-medium text-gray-700">Slip Image</label>
-                          <div className="space-y-2">
-                            <img 
-                              src={editingImage} 
-                              alt={slip.name}
-                              className="w-full h-32 object-cover rounded border"
-                            />
+                          
+                          {/* URL Input */}
+                          <div className="mb-2">
                             <input
-                              type="file"
-                              accept="image/jpeg,image/jpg"
-                              onChange={handleImageFileChange}
-                              className="w-full text-sm"
+                              type="text"
+                              value={editingImage}
+                              onChange={(e) => setEditingImage(e.target.value)}
+                              placeholder="Enter image URL or upload file below"
+                              className="w-full p-2 border border-gray-300 rounded-md text-sm"
                             />
-                            <p className="text-xs text-gray-500">
-                              Only JPEG/JPG files are supported. Max size: 5MB
-                            </p>
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={handleSaveImage}
-                                className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                              >
-                                Save Image
-                              </button>
-                              <button
-                                onClick={handleCancelEdit}
-                                className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
-                              >
-                                Cancel
-                              </button>
+                          </div>
+                          
+                          {/* File Upload */}
+                          <div className="text-center text-xs text-gray-500 my-2">- OR -</div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageFileChange}
+                            className="w-full text-sm p-2 border border-gray-300 rounded-md"
+                          />
+                          <p className="text-xs text-gray-500">Max size: 5MB</p>
+                          
+                          {/* Preview */}
+                          {editingImage && (
+                            <div className="mt-2">
+                              <img 
+                                src={editingImage} 
+                                alt="Preview"
+                                className="w-full h-32 object-cover rounded border"
+                                onError={(e) => {
+                                  e.target.src = 'https://via.placeholder.com/400x200?text=Invalid+Image';
+                                }}
+                              />
                             </div>
+                          )}
+                          
+                          {/* Action Buttons */}
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={handleSaveImage}
+                              disabled={isUploading || !editingImage}
+                              className={`px-3 py-1 rounded text-sm ${
+                                isUploading || !editingImage 
+                                  ? 'bg-gray-400 cursor-not-allowed' 
+                                  : 'bg-green-600 hover:bg-green-700'
+                              } text-white`}
+                            >
+                              {isUploading ? 'Saving...' : 'Save Image'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingSlip(null);
+                                setEditingImage('');
+                                setImageFile(null);
+                              }}
+                              className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
+                            >
+                              Cancel
+                            </button>
                           </div>
                         </div>
                       ) : (
                         <div className="mt-3">
                           <div className="mb-2">
                             <img 
-                              src={slip.images || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerh=300https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerfit=crophttps://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centercrop=center'} 
+                              src={slip.images || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop&crop=center'} 
                               alt={slip.name}
                               className="w-full h-24 object-cover rounded border"
+                              onError={(e) => {
+                                e.target.src = 'https://via.placeholder.com/400x200?text=No+Image';
+                              }}
                             />
                           </div>
                           <button

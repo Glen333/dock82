@@ -14,12 +14,12 @@ const TEST_CONFIG = {
   baseUrl: 'https://dock82-app.vercel.app',
   testUser: {
     name: 'Test User',
-    email: 'testuser@dock82.com',
+    email: `testuser${Date.now()}@dock82.com`,
     password: 'TestPassword123!',
     phone: '(555) 123-4567'
   },
   testSlip: {
-    name: 'Test Slip 99',
+    name: `Test Slip ${Date.now()}`,
     maxLength: 35,
     width: 12,
     depth: 8,

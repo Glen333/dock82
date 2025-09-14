@@ -1,11 +1,11 @@
 {
-  "timestamp": "2025-09-14T22:09:03.668Z",
+  "timestamp": "2025-09-14T22:13:48.732Z",
   "baseUrl": "https://dock82-app.vercel.app",
   "summary": {
     "total": 14,
-    "passed": 10,
-    "failed": 4,
-    "successRate": "71.4"
+    "passed": 13,
+    "failed": 1,
+    "successRate": "92.9"
   },
   "details": [
     {
@@ -15,8 +15,8 @@
     },
     {
       "testName": "User Registration",
-      "passed": false,
-      "details": "Email already exists"
+      "passed": true,
+      "details": "User registered successfully"
     },
     {
       "testName": "User Login",
@@ -25,13 +25,13 @@
     },
     {
       "testName": "Slip Creation",
-      "passed": false,
-      "details": "Failed to add new slip: duplicate key value violates unique constraint \"slips_name_key\""
+      "passed": true,
+      "details": "Slip created successfully"
     },
     {
       "testName": "Slip Retrieval",
       "passed": true,
-      "details": "Retrieved 16 slips"
+      "details": "Retrieved 18 slips"
     },
     {
       "testName": "Slip Update",
@@ -56,11 +56,11 @@
     {
       "testName": "Booking Retrieval",
       "passed": true,
-      "details": "Retrieved 1 bookings"
+      "details": "Retrieved 3 bookings"
     },
     {
       "testName": "Payment Intent Creation",
-      "passed": "pi_3S7O6Q2zul6IUZC20ZHEt0eb_secret_GXM2ArcEvvEk4KBiAoQATUMFe",
+      "passed": "pi_3S7OB12zul6IUZC20kePS4Dd_secret_qjlRzdOhqCcaGSSoU5ZaTZmoI",
       "details": "Payment intent created successfully"
     },
     {
@@ -70,8 +70,52 @@
     },
     {
       "testName": "Admin Functions",
-      "passed": false,
-      "details": "Admin functions failed"
+      "passed": [
+        {
+          "id": "0dec5cc5-3961-4858-b5f9-0131d4784d4d",
+          "name": "Super Admin",
+          "email": "Glen@centriclearning.net",
+          "password_hash": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6",
+          "phone": "555-0123",
+          "user_type": "superadmin",
+          "permissions": {
+            "manage_slips": true,
+            "manage_users": true,
+            "manage_admins": true,
+            "view_analytics": true,
+            "manage_bookings": true,
+            "system_settings": true
+          },
+          "reset_token": null,
+          "reset_token_expires": null,
+          "email_verified": true,
+          "last_login": null,
+          "profile_image_url": null,
+          "created_at": "2025-08-15T10:39:21.493273+00:00",
+          "updated_at": "2025-08-15T11:08:58.297215+00:00"
+        },
+        {
+          "id": "7530eac2-2e44-41a2-8c79-b22ac4151b5c",
+          "name": "Regular Admin",
+          "email": "admin@dock82.com",
+          "password_hash": "$2a$10$example_hash_replace_with_real_hash",
+          "phone": "555-0124",
+          "user_type": "admin",
+          "permissions": {
+            "manage_slips": true,
+            "view_analytics": true,
+            "manage_bookings": true
+          },
+          "reset_token": null,
+          "reset_token_expires": null,
+          "email_verified": true,
+          "last_login": null,
+          "profile_image_url": null,
+          "created_at": "2025-08-15T10:39:21.493273+00:00",
+          "updated_at": "2025-08-15T10:39:21.493273+00:00"
+        }
+      ],
+      "details": "Admin functions working"
     },
     {
       "testName": "Error Handling",

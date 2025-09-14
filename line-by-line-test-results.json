@@ -1,10 +1,10 @@
 {
-  "timestamp": "2025-09-14T22:09:40.797Z",
+  "timestamp": "2025-09-14T22:14:18.894Z",
   "baseUrl": "https://dock82-app.vercel.app",
   "summary": {
     "total": 31,
-    "passed": 26,
-    "failed": 5
+    "passed": 31,
+    "failed": 0
   },
   "functions": {
     "Database Operations": {
@@ -42,6 +42,7 @@
         },
         {
           "testName": "Invalid email validation",
+          "passed": true,
           "details": "Invalid email format properly rejected"
         },
         {
@@ -50,8 +51,8 @@
           "details": "Missing required fields properly rejected"
         }
       ],
-      "passed": 3,
-      "failed": 1
+      "passed": 4,
+      "failed": 0
     },
     "User Login": {
       "tests": [
@@ -62,7 +63,7 @@
         },
         {
           "testName": "Invalid password handling",
-          "passed": false,
+          "passed": true,
           "details": "Invalid password properly rejected"
         },
         {
@@ -71,8 +72,8 @@
           "details": "Non-existent user properly rejected"
         }
       ],
-      "passed": 2,
-      "failed": 1
+      "passed": 3,
+      "failed": 0
     },
     "Slip Management": {
       "tests": [
@@ -84,7 +85,7 @@
         {
           "testName": "Retrieve all slips",
           "passed": true,
-          "details": "Retrieved 17 slips"
+          "details": "Retrieved 19 slips"
         },
         {
           "testName": "Update slip",
@@ -136,7 +137,7 @@
         {
           "testName": "Retrieve bookings",
           "passed": true,
-          "details": "Retrieved 2 bookings"
+          "details": "Retrieved 4 bookings"
         },
         {
           "testName": "Invalid booking data handling",
@@ -151,7 +152,7 @@
       "tests": [
         {
           "testName": "Create payment intent",
-          "passed": "pi_3S7O6z2zul6IUZC20XWL7eUO_secret_Aal4sAuEkA6OuX8KYm6O2mBZs",
+          "passed": "pi_3S7OBT2zul6IUZC20EEUhplz_secret_bViN10L9I4MBTIeVoADMhvOp0",
           "details": "Payment intent created successfully"
         },
         {
@@ -193,18 +194,186 @@
       "tests": [
         {
           "testName": "Get all users",
-          "passed": false,
-          "details": "Unexpected token 'A', \"A server e\"... is not valid JSON"
+          "passed": [
+            {
+              "id": "edef0453-f53f-46f2-b9c3-e2e648acc585",
+              "name": "Line Test User",
+              "email": "linetest1757888035695@dock82.com",
+              "password_hash": "TGluZVRlc3QxMjMh",
+              "phone": "(555) 999-8888",
+              "user_type": "renter",
+              "permissions": {},
+              "reset_token": null,
+              "reset_token_expires": null,
+              "email_verified": false,
+              "last_login": null,
+              "profile_image_url": null,
+              "created_at": "2025-09-14T22:13:58.321656+00:00",
+              "updated_at": "2025-09-14T22:13:58.321656+00:00"
+            },
+            {
+              "id": "c489aa2c-5ec6-47b1-b834-7b64e5bafc6b",
+              "name": "Test User",
+              "email": "testuser1757888009121@dock82.com",
+              "password_hash": "VGVzdFBhc3N3b3JkMTIzIQ==",
+              "phone": "(555) 123-4567",
+              "user_type": "renter",
+              "permissions": {},
+              "reset_token": null,
+              "reset_token_expires": null,
+              "email_verified": false,
+              "last_login": null,
+              "profile_image_url": null,
+              "created_at": "2025-09-14T22:13:31.707522+00:00",
+              "updated_at": "2025-09-14T22:13:31.707522+00:00"
+            },
+            {
+              "id": "ef149b0c-5625-45c0-8fa3-1593cacc1fea",
+              "name": "Invalid User",
+              "email": "invalid-email-format",
+              "password_hash": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6",
+              "phone": "(555) 333-4444",
+              "user_type": "renter",
+              "permissions": {},
+              "reset_token": null,
+              "reset_token_expires": null,
+              "email_verified": false,
+              "last_login": null,
+              "profile_image_url": null,
+              "created_at": "2025-09-14T22:09:20.04728+00:00",
+              "updated_at": "2025-09-14T22:09:20.04728+00:00"
+            },
+            {
+              "id": "0fe7ca70-8f00-4745-857d-5454f3b5dc6e",
+              "name": "Line Test User",
+              "email": "linetest@dock82.com",
+              "password_hash": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6",
+              "phone": "(555) 999-8888",
+              "user_type": "renter",
+              "permissions": {},
+              "reset_token": null,
+              "reset_token_expires": null,
+              "email_verified": false,
+              "last_login": null,
+              "profile_image_url": null,
+              "created_at": "2025-09-14T22:09:19.571998+00:00",
+              "updated_at": "2025-09-14T22:09:19.571998+00:00"
+            },
+            {
+              "id": "b2913222-ce34-4f71-bc50-0707ca8ccce0",
+              "name": "Test User",
+              "email": "testuser@dock82.com",
+              "password_hash": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6",
+              "phone": "(555) 123-4567",
+              "user_type": "renter",
+              "permissions": {},
+              "reset_token": null,
+              "reset_token_expires": null,
+              "email_verified": false,
+              "last_login": null,
+              "profile_image_url": null,
+              "created_at": "2025-09-14T22:06:21.015975+00:00",
+              "updated_at": "2025-09-14T22:06:21.015975+00:00"
+            },
+            {
+              "id": "7530eac2-2e44-41a2-8c79-b22ac4151b5c",
+              "name": "Regular Admin",
+              "email": "admin@dock82.com",
+              "password_hash": "$2a$10$example_hash_replace_with_real_hash",
+              "phone": "555-0124",
+              "user_type": "admin",
+              "permissions": {
+                "manage_slips": true,
+                "view_analytics": true,
+                "manage_bookings": true
+              },
+              "reset_token": null,
+              "reset_token_expires": null,
+              "email_verified": true,
+              "last_login": null,
+              "profile_image_url": null,
+              "created_at": "2025-08-15T10:39:21.493273+00:00",
+              "updated_at": "2025-08-15T10:39:21.493273+00:00"
+            },
+            {
+              "id": "0dec5cc5-3961-4858-b5f9-0131d4784d4d",
+              "name": "Super Admin",
+              "email": "Glen@centriclearning.net",
+              "password_hash": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6",
+              "phone": "555-0123",
+              "user_type": "superadmin",
+              "permissions": {
+                "manage_slips": true,
+                "manage_users": true,
+                "manage_admins": true,
+                "view_analytics": true,
+                "manage_bookings": true,
+                "system_settings": true
+              },
+              "reset_token": null,
+              "reset_token_expires": null,
+              "email_verified": true,
+              "last_login": null,
+              "profile_image_url": null,
+              "created_at": "2025-08-15T10:39:21.493273+00:00",
+              "updated_at": "2025-08-15T11:08:58.297215+00:00"
+            }
+          ],
+          "details": "Users retrieved successfully"
         },
         {
           "testName": "Get all admins",
-          "passed": false,
-          "details": "Unexpected token 'A', \"A server e\"... is not valid JSON"
+          "passed": [
+            {
+              "id": "0dec5cc5-3961-4858-b5f9-0131d4784d4d",
+              "name": "Super Admin",
+              "email": "Glen@centriclearning.net",
+              "password_hash": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6",
+              "phone": "555-0123",
+              "user_type": "superadmin",
+              "permissions": {
+                "manage_slips": true,
+                "manage_users": true,
+                "manage_admins": true,
+                "view_analytics": true,
+                "manage_bookings": true,
+                "system_settings": true
+              },
+              "reset_token": null,
+              "reset_token_expires": null,
+              "email_verified": true,
+              "last_login": null,
+              "profile_image_url": null,
+              "created_at": "2025-08-15T10:39:21.493273+00:00",
+              "updated_at": "2025-08-15T11:08:58.297215+00:00"
+            },
+            {
+              "id": "7530eac2-2e44-41a2-8c79-b22ac4151b5c",
+              "name": "Regular Admin",
+              "email": "admin@dock82.com",
+              "password_hash": "$2a$10$example_hash_replace_with_real_hash",
+              "phone": "555-0124",
+              "user_type": "admin",
+              "permissions": {
+                "manage_slips": true,
+                "view_analytics": true,
+                "manage_bookings": true
+              },
+              "reset_token": null,
+              "reset_token_expires": null,
+              "email_verified": true,
+              "last_login": null,
+              "profile_image_url": null,
+              "created_at": "2025-08-15T10:39:21.493273+00:00",
+              "updated_at": "2025-08-15T10:39:21.493273+00:00"
+            }
+          ],
+          "details": "Admins retrieved successfully"
         },
         {
           "testName": "Create admin",
-          "passed": false,
-          "details": "Unexpected token 'A', \"A server e\"... is not valid JSON"
+          "passed": true,
+          "details": "Admin created successfully"
         },
         {
           "testName": "Invalid admin action handling",
@@ -212,8 +381,8 @@
           "details": "Invalid admin action properly rejected"
         }
       ],
-      "passed": 1,
-      "failed": 3
+      "passed": 4,
+      "failed": 0
     }
   }
 }

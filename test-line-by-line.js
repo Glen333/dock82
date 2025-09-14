@@ -18,12 +18,12 @@ const TEST_CONFIG = {
 const TEST_DATA = {
   user: {
     name: 'Line Test User',
-    email: 'linetest@dock82.com',
+    email: `linetest${Date.now()}@dock82.com`,
     password: 'LineTest123!',
     phone: '(555) 999-8888'
   },
   slip: {
-    name: 'Line Test Slip 100',
+    name: `Line Test Slip ${Date.now()}`,
     maxLength: 40,
     width: 15,
     depth: 10,

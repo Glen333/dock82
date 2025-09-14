@@ -9,7 +9,18 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 function hashPassword(password) {
   // This is a simple hash for demo purposes
   // In production, use: const bcrypt = require('bcrypt'); return bcrypt.hashSync(password, 10);
-  return 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6';
+  return Buffer.from(password).toString('base64');
+}
+
+// Email validation function
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+// Password validation function
+function isValidPassword(password) {
+  return password && password.length >= 6;
 }
 
 export default async function handler(req, res) {
@@ -39,6 +50,19 @@ export default async function handler(req, res) {
       } else if (action === 'login') {
         // User login with Supabase
         try {
+          // Validate input
+          if (!data.email || !data.password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+          }
+
+          if (!isValidEmail(data.email)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+          }
+
+          if (!isValidPassword(data.password)) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+          }
+
           const { data: user, error } = await supabase
             .from('users')
             .select('*')
@@ -46,32 +70,28 @@ export default async function handler(req, res) {
             .eq('password_hash', hashPassword(data.password))
             .single();
 
-          if (error) {
-            console.log('Login failed for:', data.email, error.message);
+          if (error || !user) {
+            console.log('Login failed for:', data.email, error?.message || 'User not found');
             return res.status(401).json({ error: 'Invalid email or password' });
           }
 
-          if (user) {
-            console.log('Login successful for:', data.email);
-            
-            // Transform user data to match frontend expectations
-            const userResponse = {
-              id: user.id,
-              name: user.name,
-              email: user.email,
-              userType: user.user_type,
-              phone: user.phone,
-              permissions: user.permissions || {}
-            };
-            
-            res.status(200).json({
-              success: true,
-              message: 'Login successful',
-              user: userResponse
-            });
-          } else {
-            res.status(401).json({ error: 'Invalid email or password' });
-          }
+          console.log('Login successful for:', data.email);
+          
+          // Transform user data to match frontend expectations
+          const userResponse = {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            userType: user.user_type,
+            phone: user.phone,
+            permissions: user.permissions || {}
+          };
+          
+          res.status(200).json({
+            success: true,
+            message: 'Login successful',
+            user: userResponse
+          });
         } catch (error) {
           console.error('Login error:', error);
           res.status(500).json({ error: 'Internal server error' });
@@ -79,6 +99,19 @@ export default async function handler(req, res) {
       } else if (action === 'register') {
         // Register new user with Supabase
         try {
+          // Validate input
+          if (!data.name || !data.email || !data.password) {
+            return res.status(400).json({ error: 'Name, email, and password are required' });
+          }
+
+          if (!isValidEmail(data.email)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+          }
+
+          if (!isValidPassword(data.password)) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+          }
+
           const { data: existingUser, error: checkError } = await supabase
             .from('users')
             .select('id')

@@ -86,3 +86,4 @@ coverage/
 
 # Documentation build
 docs/build/
+.env.production

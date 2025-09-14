@@ -23,19 +23,29 @@ export default async function handler(req, res) {
 
       if (action === 'users') {
         // Get all users
-        const result = await getAllUsers();
-        if (result.success) {
-          res.status(200).json({ users: result.users });
-        } else {
-          res.status(500).json({ error: result.error });
+        try {
+          const result = await getAllUsers();
+          if (result.success) {
+            res.status(200).json({ users: result.users });
+          } else {
+            res.status(500).json({ error: result.error });
+          }
+        } catch (error) {
+          console.error('Error getting users:', error);
+          res.status(500).json({ error: 'Failed to get users: ' + error.message });
         }
       } else if (action === 'admins') {
         // Get all admins
-        const result = await getAdmins();
-        if (result.success) {
-          res.status(200).json({ admins: result.admins });
-        } else {
-          res.status(500).json({ error: result.error });
+        try {
+          const result = await getAdmins();
+          if (result.success) {
+            res.status(200).json({ admins: result.admins });
+          } else {
+            res.status(500).json({ error: result.error });
+          }
+        } catch (error) {
+          console.error('Error getting admins:', error);
+          res.status(500).json({ error: 'Failed to get admins: ' + error.message });
         }
       } else {
         res.status(400).json({ error: 'Invalid action' });

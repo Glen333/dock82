@@ -1,0 +1,82 @@
+{
+  "timestamp": "2025-09-14T22:09:03.668Z",
+  "baseUrl": "https://dock82-app.vercel.app",
+  "summary": {
+    "total": 14,
+    "passed": 10,
+    "failed": 4,
+    "successRate": "71.4"
+  },
+  "details": [
+    {
+      "testName": "Database Connectivity",
+      "passed": false,
+      "details": "Database connectivity issues"
+    },
+    {
+      "testName": "User Registration",
+      "passed": false,
+      "details": "Email already exists"
+    },
+    {
+      "testName": "User Login",
+      "passed": true,
+      "details": "User logged in successfully"
+    },
+    {
+      "testName": "Slip Creation",
+      "passed": false,
+      "details": "Failed to add new slip: duplicate key value violates unique constraint \"slips_name_key\""
+    },
+    {
+      "testName": "Slip Retrieval",
+      "passed": true,
+      "details": "Retrieved 16 slips"
+    },
+    {
+      "testName": "Slip Update",
+      "passed": true,
+      "details": "Slip updated successfully"
+    },
+    {
+      "testName": "Image Upload",
+      "passed": true,
+      "details": "Image uploaded successfully"
+    },
+    {
+      "testName": "Image Storage and Retrieval",
+      "passed": true,
+      "details": "Both base64 and URL images stored successfully"
+    },
+    {
+      "testName": "Booking Creation",
+      "passed": true,
+      "details": "Booking created successfully"
+    },
+    {
+      "testName": "Booking Retrieval",
+      "passed": true,
+      "details": "Retrieved 1 bookings"
+    },
+    {
+      "testName": "Payment Intent Creation",
+      "passed": "pi_3S7O6Q2zul6IUZC20ZHEt0eb_secret_GXM2ArcEvvEk4KBiAoQATUMFe",
+      "details": "Payment intent created successfully"
+    },
+    {
+      "testName": "Notification System",
+      "passed": true,
+      "details": "Notification sent successfully"
+    },
+    {
+      "testName": "Admin Functions",
+      "passed": false,
+      "details": "Admin functions failed"
+    },
+    {
+      "testName": "Error Handling",
+      "passed": true,
+      "details": "Error handling working correctly"
+    }
+  ]
+}

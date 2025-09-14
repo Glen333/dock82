@@ -1,0 +1,219 @@
+{
+  "timestamp": "2025-09-14T22:09:40.797Z",
+  "baseUrl": "https://dock82-app.vercel.app",
+  "summary": {
+    "total": 31,
+    "passed": 26,
+    "failed": 5
+  },
+  "functions": {
+    "Database Operations": {
+      "tests": [
+        {
+          "testName": "Database connectivity",
+          "passed": true,
+          "details": "Database connection successful"
+        },
+        {
+          "testName": "Data integrity",
+          "passed": true,
+          "details": "All slip data is valid"
+        },
+        {
+          "testName": "Error handling",
+          "passed": true,
+          "details": "Database error handling working correctly"
+        }
+      ],
+      "passed": 3,
+      "failed": 0
+    },
+    "User Registration": {
+      "tests": [
+        {
+          "testName": "Valid user registration",
+          "passed": true,
+          "details": "User registered successfully"
+        },
+        {
+          "testName": "Duplicate email handling",
+          "passed": true,
+          "details": "Duplicate email properly rejected"
+        },
+        {
+          "testName": "Invalid email validation",
+          "details": "Invalid email format properly rejected"
+        },
+        {
+          "testName": "Missing required fields validation",
+          "passed": true,
+          "details": "Missing required fields properly rejected"
+        }
+      ],
+      "passed": 3,
+      "failed": 1
+    },
+    "User Login": {
+      "tests": [
+        {
+          "testName": "Valid user login",
+          "passed": true,
+          "details": "User logged in successfully"
+        },
+        {
+          "testName": "Invalid password handling",
+          "passed": false,
+          "details": "Invalid password properly rejected"
+        },
+        {
+          "testName": "Non-existent user handling",
+          "passed": true,
+          "details": "Non-existent user properly rejected"
+        }
+      ],
+      "passed": 2,
+      "failed": 1
+    },
+    "Slip Management": {
+      "tests": [
+        {
+          "testName": "Create new slip",
+          "passed": true,
+          "details": "Slip created successfully"
+        },
+        {
+          "testName": "Retrieve all slips",
+          "passed": true,
+          "details": "Retrieved 17 slips"
+        },
+        {
+          "testName": "Update slip",
+          "passed": true,
+          "details": "Slip updated successfully"
+        },
+        {
+          "testName": "Invalid slip ID handling",
+          "passed": true,
+          "details": "Invalid slip ID properly rejected"
+        }
+      ],
+      "passed": 4,
+      "failed": 0
+    },
+    "Image Handling": {
+      "tests": [
+        {
+          "testName": "Base64 image upload",
+          "passed": true,
+          "details": "Base64 image uploaded successfully"
+        },
+        {
+          "testName": "URL image upload",
+          "passed": true,
+          "details": "URL image uploaded successfully"
+        },
+        {
+          "testName": "Placeholder image upload",
+          "passed": true,
+          "details": "Placeholder image uploaded successfully"
+        },
+        {
+          "testName": "Invalid image URL handling",
+          "passed": true,
+          "details": "Invalid image URL handled appropriately"
+        }
+      ],
+      "passed": 4,
+      "failed": 0
+    },
+    "Booking Management": {
+      "tests": [
+        {
+          "testName": "Create booking",
+          "passed": true,
+          "details": "Booking created successfully"
+        },
+        {
+          "testName": "Retrieve bookings",
+          "passed": true,
+          "details": "Retrieved 2 bookings"
+        },
+        {
+          "testName": "Invalid booking data handling",
+          "passed": true,
+          "details": "Invalid booking data properly rejected"
+        }
+      ],
+      "passed": 3,
+      "failed": 0
+    },
+    "Payment Processing": {
+      "tests": [
+        {
+          "testName": "Create payment intent",
+          "passed": "pi_3S7O6z2zul6IUZC20XWL7eUO_secret_Aal4sAuEkA6OuX8KYm6O2mBZs",
+          "details": "Payment intent created successfully"
+        },
+        {
+          "testName": "Confirm payment",
+          "passed": true,
+          "details": "Payment confirmed successfully"
+        },
+        {
+          "testName": "Invalid payment intent handling",
+          "passed": true,
+          "details": "Invalid payment intent properly rejected"
+        }
+      ],
+      "passed": 3,
+      "failed": 0
+    },
+    "Notification System": {
+      "tests": [
+        {
+          "testName": "Booking confirmation notification",
+          "passed": true,
+          "details": "Booking notification sent successfully"
+        },
+        {
+          "testName": "Dock etiquette notification",
+          "passed": true,
+          "details": "Etiquette notification sent successfully"
+        },
+        {
+          "testName": "Invalid notification type handling",
+          "passed": true,
+          "details": "Invalid notification type properly rejected"
+        }
+      ],
+      "passed": 3,
+      "failed": 0
+    },
+    "Admin Management": {
+      "tests": [
+        {
+          "testName": "Get all users",
+          "passed": false,
+          "details": "Unexpected token 'A', \"A server e\"... is not valid JSON"
+        },
+        {
+          "testName": "Get all admins",
+          "passed": false,
+          "details": "Unexpected token 'A', \"A server e\"... is not valid JSON"
+        },
+        {
+          "testName": "Create admin",
+          "passed": false,
+          "details": "Unexpected token 'A', \"A server e\"... is not valid JSON"
+        },
+        {
+          "testName": "Invalid admin action handling",
+          "passed": true,
+          "details": "Invalid admin action properly rejected"
+        }
+      ],
+      "passed": 1,
+      "failed": 3
+    }
+  }
+}

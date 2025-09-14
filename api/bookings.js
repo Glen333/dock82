@@ -75,27 +75,28 @@ export default async function handler(req, res) {
       if (action === 'create-booking') {
         // Create new booking
         try {
+          const bookingData = data.bookingData || data; // Handle both formats
           const newBooking = {
-            slip_id: data.slipId,
-            user_id: data.userId,
-            guest_name: data.guestName,
-            guest_email: data.guestEmail,
-            guest_phone: data.guestPhone,
-            check_in: data.checkIn,
-            check_out: data.checkOut,
-            boat_length: data.boatLength,
-            boat_make_model: data.boatMakeModel,
-            user_type: data.userType,
-            nights: data.nights,
-            total_cost: data.totalCost,
-            status: 'pending',
-            payment_status: 'pending',
-            payment_method: data.paymentMethod || 'stripe',
-            rental_agreement_name: data.rentalAgreementName,
-            insurance_proof_name: data.insuranceProofName,
-            rental_property: data.rentalProperty,
-            rental_start_date: data.rentalStartDate,
-            rental_end_date: data.rentalEndDate
+            slip_id: bookingData.slipId,
+            user_id: bookingData.userId || null,
+            guest_name: bookingData.guestName,
+            guest_email: bookingData.guestEmail,
+            guest_phone: bookingData.guestPhone,
+            check_in: bookingData.checkIn,
+            check_out: bookingData.checkOut,
+            boat_length: bookingData.boatLength,
+            boat_make_model: bookingData.boatMakeModel,
+            user_type: bookingData.userType,
+            nights: bookingData.nights,
+            total_cost: bookingData.totalCost,
+            status: bookingData.status || 'pending',
+            payment_status: bookingData.paymentStatus || 'pending',
+            payment_method: bookingData.paymentMethod || 'stripe',
+            rental_agreement_name: bookingData.rentalAgreementName,
+            insurance_proof_name: bookingData.insuranceProofName,
+            rental_property: bookingData.rentalProperty,
+            rental_start_date: bookingData.rentalStartDate,
+            rental_end_date: bookingData.rentalEndDate
           };
 
           const { data: createdBooking, error } = await supabase
@@ -106,7 +107,10 @@ export default async function handler(req, res) {
 
           if (error) {
             console.error('Create booking error:', error);
-            return res.status(500).json({ error: 'Failed to create booking' });
+            return res.status(500).json({ 
+              success: false,
+              error: 'Failed to create booking: ' + error.message 
+            });
           }
 
           res.status(201).json({

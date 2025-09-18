@@ -78,8 +78,15 @@ const DockRentalPlatform = () => {
   const [showFinancialReport, setShowFinancialReport] = useState(false);
   const [adminView, setAdminView] = useState('overview'); // overview, bookings, financials, settings
   const [currentUser, setCurrentUser] = useState(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [editingProfile, setEditingProfile] = useState({
+    name: '',
+    phone: '',
+    userType: ''
+  });
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({ 
     name: '', 
@@ -92,6 +99,7 @@ const DockRentalPlatform = () => {
   const [userBookings, setUserBookings] = useState([]);
   const [editingImage, setEditingImage] = useState('');
   const [imageFile, setImageFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [cancellationPolicy] = useState({
     homeowner: { fee: 0, description: "Free cancellation anytime" },
     renter: {
@@ -366,6 +374,34 @@ const DockRentalPlatform = () => {
     }
   ]);
 
+  // Fetch slips from API on component mount and replace hardcoded data
+  useEffect(() => {
+    const fetchSlips = async () => {
+      try {
+        console.log('Fetching slips from API...');
+        const response = await fetch('/api/slips');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Fetched slips from API:', data.slips?.length || 0);
+        
+        if (data.slips && Array.isArray(data.slips) && data.slips.length > 0) {
+          setSlips(data.slips);
+          console.log('✅ Replaced hardcoded data with API data');
+        } else {
+          console.log('⚠️ No API data found, keeping hardcoded data as fallback');
+        }
+      } catch (error) {
+        console.error('Error fetching slips:', error);
+        console.log('⚠️ API failed, keeping hardcoded data as fallback');
+      }
+    };
+
+    fetchSlips();
+  }, []);
+
   // Helper function to validate dates
   const validateDates = (checkIn, checkOut) => {
     const today = new Date();
@@ -456,13 +492,79 @@ const DockRentalPlatform = () => {
   }, [bookings]);
 
   // AUTH STATE LISTENER
+  // Initialize session restoration on app load
   useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        // Get the current session from Supabase
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('AUTH DEBUG - Error getting session:', error);
+          return;
+        }
+
+        if (session?.user) {
+          console.log('AUTH DEBUG - Restoring session for:', session.user.email);
+          
+          // Restore user profile from database
+          const userProfile = await ensureUserProfile(session.user);
+          setCurrentUser(userProfile);
+          
+          // Set admin mode if superadmin
+          if (userProfile.user_type === 'superadmin') {
+            setAdminMode(true);
+            setSuperAdminMode(true);
+          }
+          
+          // Load user's bookings
+          const userBookings = bookings.filter(booking => 
+            booking.guestEmail === userProfile.email
+          );
+          setUserBookings(userBookings);
+          
+          console.log('AUTH DEBUG - Session restored successfully');
+        } else {
+          console.log('AUTH DEBUG - No active session found');
+        }
+      } catch (error) {
+        console.error('AUTH DEBUG - Error initializing auth:', error);
+      } finally {
+        // Always set loading to false after initialization
+        setSessionLoading(false);
+      }
+    };
+
+    // Initialize auth state
+    initializeAuth();
+
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('AUTH DEBUG - Auth state changed:', event, session?.user?.email);
         
         if (event === 'SIGNED_IN' && session?.user) {
-          await ensureUserProfile(session.user);
+          const userProfile = await ensureUserProfile(session.user);
+          setCurrentUser(userProfile);
+          
+          // Set admin mode if superadmin
+          if (userProfile.user_type === 'superadmin') {
+            setAdminMode(true);
+            setSuperAdminMode(true);
+          }
+          
+          // Load user's bookings
+          const userBookings = bookings.filter(booking => 
+            booking.guestEmail === userProfile.email
+          );
+          setUserBookings(userBookings);
+        } else if (event === 'SIGNED_OUT') {
+          // Clear user state on sign out
+          setCurrentUser(null);
+          setAdminMode(false);
+          setSuperAdminMode(false);
+          setUserBookings([]);
+          setAuthStep('login');
         }
       }
     );
@@ -1546,23 +1648,96 @@ const DockRentalPlatform = () => {
     }
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setAdminMode(false);
-    setSuperAdminMode(false);
-    setUserBookings([]);
-    setCurrentView('browse');
-    setAuthStep('login');
-    setTempEmail('');
-    setLoginData({ email: '', password: '' });
-    setRegisterData({ 
-      name: '', 
-      email: '', 
-      password: '', 
-      confirmPassword: '',
-      phone: '',
-      userType: 'renter'
-    });
+  const handleLogout = async () => {
+    try {
+      // Sign out from Supabase (this will trigger the auth state change listener)
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('AUTH DEBUG - Error signing out:', error);
+        alert('Error signing out. Please try again.');
+        return;
+      }
+      
+      // Clear local state (this will also be handled by the auth state change listener)
+      setCurrentUser(null);
+      setAdminMode(false);
+      setSuperAdminMode(false);
+      setUserBookings([]);
+      setCurrentView('browse');
+      setAuthStep('login');
+      setTempEmail('');
+      setLoginData({ email: '', password: '' });
+      setRegisterData({ 
+        name: '', 
+        email: '', 
+        password: '', 
+        confirmPassword: '',
+        phone: '',
+        userType: 'renter'
+      });
+      setShowProfileModal(false);
+      
+      console.log('AUTH DEBUG - Logout successful');
+    } catch (error) {
+      console.error('AUTH DEBUG - Unexpected error during logout:', error);
+      alert('An unexpected error occurred during logout.');
+    }
+  };
+
+  // Handle opening profile edit modal
+  const handleEditProfile = () => {
+    if (currentUser) {
+      setEditingProfile({
+        name: currentUser.name || '',
+        phone: currentUser.phone || '',
+        userType: currentUser.user_type || 'renter'
+      });
+      setShowProfileModal(true);
+    }
+  };
+
+  // Handle saving profile changes
+  const handleSaveProfile = async () => {
+    if (!currentUser) return;
+
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'update-user',
+          userId: currentUser.id,
+          userData: {
+            name: editingProfile.name,
+            phone: editingProfile.phone,
+            userType: editingProfile.userType
+          }
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Update current user state
+        setCurrentUser({
+          ...currentUser,
+          name: editingProfile.name,
+          phone: editingProfile.phone,
+          user_type: editingProfile.userType
+        });
+        
+        setShowProfileModal(false);
+        alert('✅ Profile updated successfully!');
+      } else {
+        alert('❌ Failed to update profile: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('❌ Failed to update profile. Please try again.');
+    }
   };
 
   const loadAllUsers = async () => {
@@ -2293,6 +2468,18 @@ const DockRentalPlatform = () => {
 
 
 
+  // Show loading screen while checking session
+  if (sessionLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your session...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -2342,6 +2529,13 @@ const DockRentalPlatform = () => {
               {currentUser ? (
                 <div className="flex items-center space-x-3">
                   <span className="text-sm text-gray-700">Welcome, {currentUser.name}</span>
+                  <button
+                    onClick={handleEditProfile}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                  >
+                    <User className="w-4 h-4 inline mr-1" />
+                    Profile
+                  </button>
                   <button
                     onClick={handleLogout}
                     className="px-3 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
@@ -4133,10 +4327,11 @@ const DockRentalPlatform = () => {
                   <input
                     type="email"
                     value={registerData.email}
-                    disabled
-                    className="w-full p-3 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                    onChange={(e) => setRegisterData({...registerData, email: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     autoComplete="username"
                     name="email"
+                    required
                   />
                 </div>
                 <div>
@@ -4389,6 +4584,85 @@ const DockRentalPlatform = () => {
         </div>
       )}
 
+      {/* Profile Edit Modal */}
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Edit Profile</h2>
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={currentUser?.email || ''}
+                  disabled
+                  className="w-full p-3 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={editingProfile.name}
+                  onChange={(e) => setEditingProfile({...editingProfile, name: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={editingProfile.phone}
+                  onChange={(e) => setEditingProfile({...editingProfile, phone: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">User Type</label>
+                <select
+                  value={editingProfile.userType}
+                  onChange={(e) => setEditingProfile({...editingProfile, userType: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="renter">Renter</option>
+                  <option value="homeowner">Homeowner</option>
+                </select>
+              </div>
+              
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 font-medium"
+                >
+                  Save Changes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowProfileModal(false)}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -4143,17 +4143,30 @@ const DockRentalPlatform = () => {
                 >
                   Sign In
                 </button>
-                <div className="text-center">
+                <div className="text-center space-y-2">
                   <button
                     type="button"
                     onClick={() => {
                       setTempEmail(loginData.email);
                       setAuthStep('forgot-password');
                     }}
-                    className="text-sm text-blue-600 hover:text-blue-700"
+                    className="text-sm text-blue-600 hover:text-blue-700 block"
                   >
                     Forgot your password?
                   </button>
+                  <div className="text-sm text-gray-600">
+                    Don't have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRegisterData({ ...registerData, email: loginData.email });
+                        setAuthStep('register');
+                      }}
+                      className="text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Sign up here
+                    </button>
+                  </div>
                 </div>
               </form>
             )}
@@ -4327,12 +4340,17 @@ const DockRentalPlatform = () => {
                   <input
                     type="email"
                     value={registerData.email}
-                    onChange={(e) => setRegisterData({...registerData, email: e.target.value})}
+                    onChange={(e) => {
+                      console.log('Email input changed:', e.target.value);
+                      setRegisterData({...registerData, email: e.target.value});
+                    }}
                     className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     autoComplete="username"
                     name="email"
                     required
+                    placeholder="Enter your email address"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Current value: {registerData.email}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Phone (Optional)</label>

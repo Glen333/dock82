@@ -163,6 +163,55 @@ export default async function handler(req, res) {
           console.error('Registration error:', error);
           res.status(500).json({ error: 'Internal server error' });
         }
+      } else if (action === 'update-user') {
+        // Update user profile
+        try {
+          const { userId, userData } = data;
+          
+          if (!userId || !userData) {
+            return res.status(400).json({ error: 'User ID and user data are required' });
+          }
+
+          const { data: updatedUser, error: updateError } = await supabase
+            .from('users')
+            .update({
+              name: userData.name,
+              phone: userData.phone,
+              user_type: userData.userType,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', userId)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error('Update user error:', updateError);
+            return res.status(500).json({ error: 'Failed to update user: ' + updateError.message });
+          }
+
+          if (!updatedUser) {
+            return res.status(404).json({ error: 'User not found' });
+          }
+
+          // Transform user data to match frontend expectations
+          const userResponse = {
+            id: updatedUser.id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            userType: updatedUser.user_type,
+            phone: updatedUser.phone,
+            permissions: updatedUser.permissions || {}
+          };
+
+          res.status(200).json({
+            success: true,
+            message: 'User updated successfully',
+            user: userResponse
+          });
+        } catch (error) {
+          console.error('Update user error:', error);
+          res.status(500).json({ error: 'Internal server error' });
+        }
       } else {
         res.status(400).json({ error: 'Invalid action' });
       }

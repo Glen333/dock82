@@ -192,3 +192,5 @@ SELECT 'booking_summary count:' as view_name, COUNT(*) as count FROM public.book
 WHERE EXISTS (SELECT 1 FROM pg_views WHERE schemaname = 'public' AND viewname = 'booking_summary');
 
 
+
+

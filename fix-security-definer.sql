@@ -50,3 +50,5 @@ WHERE viewname = 'available_slips';
 SELECT COUNT(*) FROM public.available_slips;
 
 
+
+

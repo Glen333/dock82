@@ -106,3 +106,5 @@ UNION ALL
 SELECT 'booking_summary sample:' as view_name, guest_name, status FROM public.booking_summary LIMIT 3;
 
 
+
+

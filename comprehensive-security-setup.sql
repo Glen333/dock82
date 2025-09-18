@@ -224,3 +224,5 @@ UNION ALL
 SELECT 'booking_summary count:' as view_name, COUNT(*) as count FROM public.booking_summary;
 
 
+
+

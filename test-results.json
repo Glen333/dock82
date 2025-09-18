@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-09-14T22:13:48.732Z",
+  "timestamp": "2025-09-14T22:37:55.239Z",
   "baseUrl": "https://dock82-app.vercel.app",
   "summary": {
     "total": 14,
@@ -31,7 +31,7 @@
     {
       "testName": "Slip Retrieval",
       "passed": true,
-      "details": "Retrieved 18 slips"
+      "details": "Retrieved 20 slips"
     },
     {
       "testName": "Slip Update",
@@ -56,11 +56,11 @@
     {
       "testName": "Booking Retrieval",
       "passed": true,
-      "details": "Retrieved 3 bookings"
+      "details": "Retrieved 5 bookings"
     },
     {
       "testName": "Payment Intent Creation",
-      "passed": "pi_3S7OB12zul6IUZC20kePS4Dd_secret_qjlRzdOhqCcaGSSoU5ZaTZmoI",
+      "passed": "pi_3S7OYM2zul6IUZC20MQj238N_secret_hJ86kEyqzBve0oHAvv1y61zkW",
       "details": "Payment intent created successfully"
     },
     {
@@ -71,6 +71,22 @@
     {
       "testName": "Admin Functions",
       "passed": [
+        {
+          "id": "13f69581-be81-415f-9db4-25f4d3eb2774",
+          "name": "Line Test Admin",
+          "email": "linetestadmin@dock82.com",
+          "password_hash": "QWRtaW5QYXNzd29yZDEyMyE=",
+          "phone": "",
+          "user_type": "admin",
+          "permissions": "{\"manage_users\":true,\"manage_slips\":true,\"manage_bookings\":true,\"view_analytics\":true}",
+          "reset_token": null,
+          "reset_token_expires": null,
+          "email_verified": false,
+          "last_login": null,
+          "profile_image_url": null,
+          "created_at": "2025-09-14T22:14:16.78242+00:00",
+          "updated_at": "2025-09-14T22:14:16.78242+00:00"
+        },
         {
           "id": "0dec5cc5-3961-4858-b5f9-0131d4784d4d",
           "name": "Super Admin",

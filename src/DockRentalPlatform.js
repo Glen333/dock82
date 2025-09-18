@@ -4470,7 +4470,10 @@ const DockRentalPlatform = () => {
                   <>
                     Don't have an account?{' '}
                     <button
-                      onClick={() => setAuthStep('register')}
+                      onClick={() => {
+                        setRegisterData({ ...registerData, email: tempEmail });
+                        setAuthStep('register');
+                      }}
                       className="text-blue-600 hover:text-blue-700 font-medium"
                     >
                       Sign up here

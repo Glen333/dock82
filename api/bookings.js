@@ -35,10 +35,10 @@ export default async function handler(req, res) {
         }
 
         // Transform data to match frontend expectations
-        const transformedBookings = bookings.map(booking => ({
+          const transformedBookings = bookings.map(booking => ({
           id: booking.id,
           slipId: booking.slip_id,
-          userId: booking.user_id,
+          renterAuthId: booking.renter_auth_id,
           guestName: booking.guest_name,
           guestEmail: booking.guest_email,
           guestPhone: booking.guest_phone,
@@ -48,17 +48,23 @@ export default async function handler(req, res) {
           boatMakeModel: booking.boat_make_model,
           userType: booking.user_type,
           nights: booking.nights,
-          totalCost: parseFloat(booking.total_cost),
+          baseTotal: parseFloat(booking.base_total || 0),
+          discount: parseFloat(booking.discount || 0),
+          totalCost: parseFloat(booking.total_cost || 0),
           status: booking.status,
           bookingDate: booking.booking_date,
           paymentStatus: booking.payment_status,
           paymentMethod: booking.payment_method,
           paymentDate: booking.payment_date,
+          paymentIntentId: booking.payment_intent_id,
           rentalAgreementName: booking.rental_agreement_name,
           insuranceProofName: booking.insurance_proof_name,
           rentalProperty: booking.rental_property,
           rentalStartDate: booking.rental_start_date,
           rentalEndDate: booking.rental_end_date,
+          cancellationDate: booking.cancellation_date,
+          cancellationReason: booking.cancellation_reason,
+          refundAmount: parseFloat(booking.refund_amount || 0),
           slipName: booking.slips?.name,
           userName: booking.users?.name,
           userEmail: booking.users?.email
@@ -78,7 +84,7 @@ export default async function handler(req, res) {
           const bookingData = data.bookingData || data; // Handle both formats
           const newBooking = {
             slip_id: bookingData.slipId,
-            user_id: bookingData.userId || null,
+            renter_auth_id: bookingData.renterAuthId || null,
             guest_name: bookingData.guestName,
             guest_email: bookingData.guestEmail,
             guest_phone: bookingData.guestPhone,
@@ -88,10 +94,13 @@ export default async function handler(req, res) {
             boat_make_model: bookingData.boatMakeModel,
             user_type: bookingData.userType,
             nights: bookingData.nights,
-            total_cost: bookingData.totalCost,
+            base_total: bookingData.baseTotal || 0,
+            discount: bookingData.discount || 0,
+            total_cost: bookingData.totalCost || 0,
             status: bookingData.status || 'pending',
-            payment_status: bookingData.paymentStatus || 'pending',
-            payment_method: bookingData.paymentMethod || 'stripe',
+            payment_status: bookingData.paymentStatus || 'scheduled',
+            payment_method: bookingData.paymentMethod || null,
+            payment_intent_id: bookingData.paymentIntentId || null,
             rental_agreement_name: bookingData.rentalAgreementName,
             insurance_proof_name: bookingData.insuranceProofName,
             rental_property: bookingData.rentalProperty,

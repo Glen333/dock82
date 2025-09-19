@@ -27,14 +27,61 @@ export default async function handler(req, res) {
         });
       }
 
-      // For now, just return success since we don't have Stripe configured
-      // In a real implementation, you would verify the payment with Stripe
-      console.log('Payment confirmation for intent:', payment_intent_id);
+      // Find the booking by payment intent ID and update it
+      const { data: booking, error: fetchError } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          slips(name)
+        `)
+        .eq('payment_intent_id', payment_intent_id)
+        .single();
+
+      if (fetchError || !booking) {
+        console.error('Booking not found for payment intent:', payment_intent_id, fetchError);
+        return res.status(404).json({ 
+          success: false,
+          error: 'Booking not found for this payment intent' 
+        });
+      }
+
+      // Update the booking with payment confirmation
+      const { data: updatedBooking, error: updateError } = await supabase
+        .from('bookings')
+        .update({
+          payment_status: 'paid',
+          payment_date: new Date().toISOString().split('T')[0],
+          status: 'confirmed'
+        })
+        .eq('payment_intent_id', payment_intent_id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Failed to update booking:', updateError);
+        return res.status(500).json({ 
+          success: false,
+          error: 'Failed to confirm payment in database' 
+        });
+      }
+
+      console.log('Payment confirmed for booking:', updatedBooking.id);
       
       res.status(200).json({ 
         success: true, 
         message: 'Payment confirmed successfully',
-        payment_intent_id: payment_intent_id
+        booking: {
+          id: updatedBooking.id,
+          slipName: updatedBooking.slips?.name,
+          guestName: updatedBooking.guest_name,
+          guestEmail: updatedBooking.guest_email,
+          checkIn: updatedBooking.check_in,
+          checkOut: updatedBooking.check_out,
+          totalCost: updatedBooking.total_cost,
+          status: updatedBooking.status,
+          paymentStatus: updatedBooking.payment_status,
+          paymentDate: updatedBooking.payment_date
+        }
       });
     } else {
       res.status(405).json({ 

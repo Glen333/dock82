@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStripe, useElements } from '@stripe/react-stripe-js';
+import { supabase } from './supabase';
 
 const PaymentPage = ({ bookingData, selectedSlip, onPaymentComplete, onBack }) => {
   const stripe = useStripe();
@@ -17,37 +18,43 @@ const PaymentPage = ({ bookingData, selectedSlip, onPaymentComplete, onBack }) =
   const createPaymentIntent = async () => {
     try {
       const totalAmount = calculateTotal();
-      const apiUrl = process.env.REACT_APP_API_URL || '';
       
-      const response = await fetch(`${apiUrl}/api/create-payment-intent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: Math.round(totalAmount * 100), // Convert to cents
+      // Use Supabase Edge Function instead of Vercel API
+      const { data, error } = await supabase.functions.invoke('create-payment-intent', {
+        body: {
+          amount: totalAmount, // Pass as dollars, function will convert to cents
           currency: 'usd',
-          metadata: {
-            slipId: selectedSlip?.id,
-            slipName: selectedSlip?.name,
-            guestName: bookingData.guestName,
-            guestEmail: bookingData.guestEmail,
-            checkIn: bookingData.checkIn,
-            checkOut: bookingData.checkOut,
-            boatLength: bookingData.boatLength,
-            boatMakeModel: bookingData.boatMakeModel
+          booking: {
+            slip_id: selectedSlip?.id,
+            slip_name: selectedSlip?.name,
+            guest_name: bookingData.guestName,
+            guest_email: bookingData.guestEmail,
+            guest_phone: bookingData.guestPhone,
+            check_in: bookingData.checkIn,
+            check_out: bookingData.checkOut,
+            boat_length: bookingData.boatLength,
+            boat_make_model: bookingData.boatMakeModel,
+            user_type: bookingData.userType,
+            nights: Math.ceil((new Date(bookingData.checkOut) - new Date(bookingData.checkIn)) / (1000 * 60 * 60 * 24)),
+            rental_property: bookingData.rentalProperty,
+            rental_start_date: bookingData.rentalStartDate,
+            rental_end_date: bookingData.rentalEndDate
           }
-        }),
+        }
       });
-
-      const data = await response.json();
       
+      if (error) {
+        console.error('Edge function error:', error);
+        setPaymentError(error.message || 'Failed to initialize payment. Please try again.');
+        return;
+      }
+
       if (data.error) {
         setPaymentError(data.error);
         return;
       }
 
-      setClientSecret(data.client_secret);
+      setClientSecret(data.clientSecret);
     } catch (error) {
       console.error('Error creating payment intent:', error);
       setPaymentError('Failed to initialize payment. Please try again.');

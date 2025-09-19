@@ -707,51 +707,76 @@ const DockRentalPlatform = () => {
   };
 
   const handlePaymentComplete = async (paymentResult) => {
-    const nights = Math.ceil((new Date(bookingData.checkOut) - new Date(bookingData.checkIn)) / (1000 * 60 * 60 * 24));
-    const totalCost = nights * selectedSlip.price_per_night;
+    try {
+      // First, confirm the payment using Supabase Edge Function
+      const { data: confirmData, error: confirmError } = await supabase.functions.invoke('confirm-payment', {
+        body: {
+          payment_intent_id: paymentResult.paymentIntentId
+        }
+      });
 
-    const newBooking = {
-      id: Date.now(),
-      slipId: selectedSlip.id,
-      slipName: selectedSlip.name,
-      ...bookingData,
-      nights,
-      totalCost,
-      status: 'confirmed',
-      bookingDate: new Date().toISOString().split('T')[0],
-      rentalAgreementName: bookingData.rentalAgreement?.name,
-      insuranceProofName: bookingData.insuranceProof?.name,
-      paymentStatus: 'paid',
-      paymentDate: new Date().toISOString().split('T')[0],
-      paymentMethod: 'stripe',
-      paymentIntentId: paymentResult.paymentIntentId,
-      selectedOwner: bookingData.selectedOwner || null
-    };
+      if (confirmError) {
+        console.error('Payment confirmation error:', confirmError);
+        alert('Payment processed but confirmation failed. Please contact support.');
+        return;
+      }
 
-    setBookings([...bookings, newBooking]);
-    setShowPaymentPage(false);
-    setCurrentView('browse');
-    
-    // Send confirmation emails
-    await sendEmailNotification('paymentReceipt', bookingData.guestEmail, {
-      guestName: bookingData.guestName,
-      slipName: selectedSlip.name,
-      paymentIntentId: paymentResult.paymentIntentId,
-      amount: totalCost,
-      paymentMethod: 'stripe'
-    });
-    
-    await sendEmailNotification('bookingConfirmation', bookingData.guestEmail, {
-      guestName: bookingData.guestName,
-      slipName: selectedSlip.name,
-      checkIn: bookingData.checkIn,
-      checkOut: bookingData.checkOut,
-      boatMakeModel: bookingData.boatMakeModel,
-      boatLength: bookingData.boatLength,
-      totalAmount: totalCost
-    });
+      if (confirmData.error) {
+        console.error('Payment confirmation error:', confirmData.error);
+        alert('Payment processed but confirmation failed. Please contact support.');
+        return;
+      }
 
-    alert('Payment successful! Your booking has been confirmed. You will receive a confirmation email shortly.');
+      // Update local bookings state with confirmed booking
+      const nights = Math.ceil((new Date(bookingData.checkOut) - new Date(bookingData.checkIn)) / (1000 * 60 * 60 * 24));
+      const totalCost = nights * selectedSlip.price_per_night;
+
+      const newBooking = {
+        id: confirmData.booking.id,
+        slipId: selectedSlip.id,
+        slipName: selectedSlip.name,
+        ...bookingData,
+        nights,
+        totalCost,
+        status: 'confirmed',
+        bookingDate: new Date().toISOString().split('T')[0],
+        rentalAgreementName: bookingData.rentalAgreement?.name,
+        insuranceProofName: bookingData.insuranceProof?.name,
+        paymentStatus: 'paid',
+        paymentDate: new Date().toISOString().split('T')[0],
+        paymentMethod: 'stripe',
+        paymentIntentId: paymentResult.paymentIntentId,
+        selectedOwner: bookingData.selectedOwner || null
+      };
+
+      setBookings([...bookings, newBooking]);
+      setShowPaymentPage(false);
+      setCurrentView('browse');
+      
+      // Send confirmation emails
+      await sendEmailNotification('paymentReceipt', bookingData.guestEmail, {
+        guestName: bookingData.guestName,
+        slipName: selectedSlip.name,
+        paymentIntentId: paymentResult.paymentIntentId,
+        amount: totalCost,
+        paymentMethod: 'stripe'
+      });
+      
+      await sendEmailNotification('bookingConfirmation', bookingData.guestEmail, {
+        guestName: bookingData.guestName,
+        slipName: selectedSlip.name,
+        checkIn: bookingData.checkIn,
+        checkOut: bookingData.checkOut,
+        boatMakeModel: bookingData.boatMakeModel,
+        boatLength: bookingData.boatLength,
+        totalAmount: totalCost
+      });
+
+      alert('Payment successful! Your booking has been confirmed. You will receive a confirmation email shortly.');
+    } catch (error) {
+      console.error('Payment completion error:', error);
+      alert('Payment processed but there was an error completing the booking. Please contact support.');
+    }
   };
 
   const handleBookingSubmit = async (e) => {

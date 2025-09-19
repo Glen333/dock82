@@ -1701,10 +1701,13 @@ const DockRentalPlatform = () => {
 
   const sendEmailNotification = async (type, email, data) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/send-notification`, {
+      const fnUrl = `${supabase.functions.url}/send-notification`;
+      
+      const response = await fetch(fnUrl, {
         method: 'POST',
-        headers: {
+        headers: { 
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
         },
         body: JSON.stringify({ type, email, data }),
       });
@@ -1712,7 +1715,8 @@ const DockRentalPlatform = () => {
       if (response.ok) {
         console.log('Email notification sent successfully');
       } else {
-        console.error('Failed to send email notification');
+        const errorData = await response.json();
+        console.error('Failed to send email notification:', errorData);
       }
     } catch (error) {
       console.error('Error sending email notification:', error);
@@ -1721,10 +1725,13 @@ const DockRentalPlatform = () => {
 
   const sendDockEtiquetteEmail = async (email, slipName, dockEtiquette) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/send-notification`, {
+      const fnUrl = `${supabase.functions.url}/send-notification`;
+      
+      const response = await fetch(fnUrl, {
         method: 'POST',
-        headers: {
+        headers: { 
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
         },
         body: JSON.stringify({
           type: 'dockEtiquette',

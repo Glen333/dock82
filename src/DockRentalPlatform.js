@@ -933,15 +933,10 @@ const DockRentalPlatform = () => {
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
       {slip.images && (
         <img 
-          src={slip.images} 
+          src={`${slip.images}?t=${Date.now()}`} 
           alt={slip.name}
           className="w-full h-48 object-cover"
         />
-      )}
-      {!slip.images && (
-        <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-          <span className="text-gray-500">No Image</span>
-        </div>
       )}
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
@@ -2031,21 +2026,13 @@ const DockRentalPlatform = () => {
       try {
         setSlipsLoading(true);
         
-        // Load slips from API
-        const slipsResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/slips`);
+        // Load slips from API with cache busting
+        const slipsResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/slips?t=${Date.now()}`);
         if (slipsResponse.ok) {
           const slipsData = await slipsResponse.json();
           const slipsArray = slipsData.slips || [];
           
-          // Normalize images to strings (not arrays)
-          const normalizedSlips = slipsArray.map(slip => ({
-            ...slip,
-            images: Array.isArray(slip.images) 
-              ? slip.images[0] 
-              : slip.images
-          }));
-          
-          setSlips(normalizedSlips);
+          setSlips(slipsArray);
         }
 
         // Load bookings from API
@@ -3203,20 +3190,14 @@ const DockRentalPlatform = () => {
                       )}
 
                       {/* Image Display */}
-                      {(
+                      {slip.images && (
                         <div className="mt-3">
                           <div className="mb-2">
-                            {slip.images ? (
-                              <img 
-                                src={slip.images} 
-                                alt={slip.name}
-                                className="w-full h-24 object-cover rounded border"
-                              />
-                            ) : (
-                              <div className="w-full h-24 bg-gray-200 rounded border flex items-center justify-center">
-                                <span className="text-gray-500 text-sm">No Image</span>
-                              </div>
-                            )}
+                            <img 
+                              src={`${slip.images}?t=${Date.now()}`} 
+                              alt={slip.name}
+                              className="w-full h-24 object-cover rounded border"
+                            />
                           </div>
                         </div>
                       )}

@@ -709,23 +709,27 @@ const DockRentalPlatform = () => {
   const handlePaymentComplete = async (paymentResult) => {
     try {
       // First, confirm the payment using Supabase Edge Function
-      const { data: confirmData, error: confirmError } = await supabase.functions.invoke('confirm-payment', {
-        body: {
+      const fnUrl = `${supabase.functions.url}/confirm-payment`;
+      
+      const resp = await fetch(fnUrl, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
+        },
+        body: JSON.stringify({
           payment_intent_id: paymentResult.paymentIntentId
-        }
+        })
       });
 
-      if (confirmError) {
-        console.error('Payment confirmation error:', confirmError);
+      if (!resp.ok) {
+        const errorData = await resp.json();
+        console.error('Payment confirmation error:', errorData);
         alert('Payment processed but confirmation failed. Please contact support.');
         return;
       }
-
-      if (confirmData.error) {
-        console.error('Payment confirmation error:', confirmData.error);
-        alert('Payment processed but confirmation failed. Please contact support.');
-        return;
-      }
+      
+      const confirmData = await resp.json();
 
       // Update local bookings state with confirmed booking
       const nights = Math.ceil((new Date(bookingData.checkOut) - new Date(bookingData.checkIn)) / (1000 * 60 * 60 * 24));

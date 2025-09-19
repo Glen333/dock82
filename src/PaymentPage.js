@@ -19,9 +19,17 @@ const PaymentPage = ({ bookingData, selectedSlip, onPaymentComplete, onBack }) =
     try {
       const totalAmount = calculateTotal();
       
-      // Use Supabase Edge Function instead of Vercel API
-      const { data, error } = await supabase.functions.invoke('create-payment-intent', {
-        body: {
+      // Get user session for authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      const fnUrl = `${supabase.functions.url}/create-payment-intent`;
+      
+      const resp = await fetch(fnUrl, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
+        },
+        body: JSON.stringify({
           amount: totalAmount, // Pass as dollars, function will convert to cents
           currency: 'usd',
           booking: {
@@ -40,21 +48,17 @@ const PaymentPage = ({ bookingData, selectedSlip, onPaymentComplete, onBack }) =
             rental_start_date: bookingData.rentalStartDate,
             rental_end_date: bookingData.rentalEndDate
           }
-        }
+        })
       });
       
-      if (error) {
-        console.error('Edge function error:', error);
-        setPaymentError(error.message || 'Failed to initialize payment. Please try again.');
+      if (!resp.ok) {
+        const errorData = await resp.json();
+        setPaymentError(errorData.error || 'Failed to initialize payment. Please try again.');
         return;
       }
-
-      if (data.error) {
-        setPaymentError(data.error);
-        return;
-      }
-
-      setClientSecret(data.clientSecret);
+      
+      const { clientSecret } = await resp.json();
+      setClientSecret(clientSecret);
     } catch (error) {
       console.error('Error creating payment intent:', error);
       setPaymentError('Failed to initialize payment. Please try again.');

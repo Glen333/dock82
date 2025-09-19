@@ -1111,11 +1111,11 @@ const DockRentalPlatform = () => {
     console.log('AUTH DEBUG - Ensuring user profile exists for:', authUser.email);
     
     try {
-      // First, try to get existing profile
+      // First, try to get existing profile by email
       const { data: existingProfile, error: fetchError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', authUser.id)
+        .eq('email', authUser.email)
         .single();
 
       if (existingProfile) {
@@ -1129,11 +1129,13 @@ const DockRentalPlatform = () => {
       const { data: newProfile, error: createError } = await supabase
         .from('users')
         .insert({
-          id: authUser.id,
           name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
           email: authUser.email,
           password_hash: 'auth_managed', // Supabase Auth manages the password
-          user_type: authUser.email === 'Glen@centriclearning.net' ? 'superadmin' : 'renter',
+          user_type: authUser.user_metadata?.userType || (authUser.email === 'Glen@centriclearning.net' ? 'superadmin' : 'renter'),
+          phone: authUser.user_metadata?.phone || '',
+          property_address: authUser.user_metadata?.propertyAddress || '',
+          emergency_contact: authUser.user_metadata?.emergencyContact || '',
           permissions: authUser.email === 'Glen@centriclearning.net' 
             ? {
                 manage_users: true,

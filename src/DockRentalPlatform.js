@@ -710,40 +710,54 @@ const DockRentalPlatform = () => {
 
   const handlePaymentComplete = async (paymentResult) => {
     try {
-      // First, confirm the payment using Supabase Edge Function
-      const fnUrl = `${supabase.functions.url}/confirm-payment`;
+      // Get current user data for the booking
+      const { data: userData } = await supabase.auth.getUser();
       
-      const resp = await fetch(fnUrl, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
-        },
-        body: JSON.stringify({
-          payment_intent_id: paymentResult.paymentIntentId
-        })
-      });
+      // Calculate totals
+      const nights = Math.ceil((new Date(bookingData.checkOut) - new Date(bookingData.checkIn)) / (1000 * 60 * 60 * 24));
+      const baseTotal = nights * selectedSlip.price_per_night;
+      const discount = nights === 30 ? baseTotal * 0.4 : 0; // 40% discount for 30-day bookings
+      const finalTotal = baseTotal - discount;
 
-      if (!resp.ok) {
-        const errorData = await resp.json();
-        console.error('Payment confirmation error:', errorData);
-        alert('Payment processed but confirmation failed. Please contact support.');
+      // Insert booking directly into database
+      const { data: newBookingData, error: insertErr } = await supabase.from('bookings').insert({
+        slip_id: selectedSlip.id,
+        renter_auth_id: userData?.user?.id || null,
+        guest_name: bookingData.guestName,
+        guest_email: bookingData.guestEmail,
+        guest_phone: bookingData.guestPhone,
+        user_type: bookingData.userType,            // 'renter' or 'homeowner'
+        check_in: bookingData.checkIn,
+        check_out: bookingData.checkOut,
+        boat_length: bookingData.boatLength,
+        boat_make_model: bookingData.boatMakeModel,
+        base_total: baseTotal,
+        discount: discount,
+        total_cost: finalTotal,
+        status: 'confirmed',
+        payment_status: 'paid',
+        payment_date: new Date().toISOString().slice(0,10),
+        payment_method: 'stripe',
+        payment_intent_id: paymentResult.paymentIntentId,
+        rental_property: bookingData.rentalProperty || null,
+        rental_start_date: bookingData.rentalStartDate || null,
+        rental_end_date: bookingData.rentalEndDate || null,
+      }).select().single();
+
+      if (insertErr) {
+        console.error('Database insert error:', insertErr);
+        alert('Saved payment, but failed to record booking. We will fix this manually.');
         return;
       }
-      
-      const confirmData = await resp.json();
 
       // Update local bookings state with confirmed booking
-      const nights = Math.ceil((new Date(bookingData.checkOut) - new Date(bookingData.checkIn)) / (1000 * 60 * 60 * 24));
-      const totalCost = nights * selectedSlip.price_per_night;
-
       const newBooking = {
-        id: confirmData.booking.id,
+        id: newBookingData.id,
         slipId: selectedSlip.id,
         slipName: selectedSlip.name,
         ...bookingData,
         nights,
-        totalCost,
+        totalCost: finalTotal,
         status: 'confirmed',
         bookingDate: new Date().toISOString().split('T')[0],
         rentalAgreementName: bookingData.rentalAgreement?.name,
@@ -764,7 +778,7 @@ const DockRentalPlatform = () => {
         guestName: bookingData.guestName,
         slipName: selectedSlip.name,
         paymentIntentId: paymentResult.paymentIntentId,
-        amount: totalCost,
+        amount: finalTotal,
         paymentMethod: 'stripe'
       });
       
@@ -775,7 +789,7 @@ const DockRentalPlatform = () => {
         checkOut: bookingData.checkOut,
         boatMakeModel: bookingData.boatMakeModel,
         boatLength: bookingData.boatLength,
-        totalAmount: totalCost
+        totalAmount: finalTotal
       });
 
       alert('Payment successful! Your booking has been confirmed. You will receive a confirmation email shortly.');

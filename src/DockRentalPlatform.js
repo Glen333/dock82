@@ -1148,14 +1148,18 @@ const DockRentalPlatform = () => {
 
   const SlipCard = ({ slip }) => (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-      <img 
-        src={slip.images || 'https://via.placeholder.com/400x300?text=No+Image'} 
-        alt={slip.name}
-        className="w-full h-48 object-cover"
-        onError={(e) => {
-          e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
-        }}
-      />
+      {slip.images && (
+        <img 
+          src={slip.images} 
+          alt={slip.name}
+          className="w-full h-48 object-cover"
+        />
+      )}
+      {!slip.images && (
+        <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+          <span className="text-gray-500">No Image</span>
+        </div>
+      )}
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
           <h3 className="text-lg font-semibold">{slip.name}</h3>
@@ -2253,7 +2257,7 @@ const DockRentalPlatform = () => {
             ...slip,
             images: Array.isArray(slip.images) 
               ? slip.images[0] 
-              : (slip.images || '')
+              : slip.images
           }));
           
           setSlips(normalizedSlips);
@@ -3403,14 +3407,17 @@ const DockRentalPlatform = () => {
                       {(
                         <div className="mt-3">
                           <div className="mb-2">
-                            <img 
-                              src={slip.images || 'https://via.placeholder.com/400x300?text=No+Image'} 
-                              alt={slip.name}
-                              className="w-full h-24 object-cover rounded border"
-                              onError={(e) => {
-                                e.target.src = 'https://via.placeholder.com/400x200?text=No+Image';
-                              }}
-                            />
+                            {slip.images ? (
+                              <img 
+                                src={slip.images} 
+                                alt={slip.name}
+                                className="w-full h-24 object-cover rounded border"
+                              />
+                            ) : (
+                              <div className="w-full h-24 bg-gray-200 rounded border flex items-center justify-center">
+                                <span className="text-gray-500 text-sm">No Image</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}

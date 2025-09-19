@@ -46,7 +46,7 @@ export default async function handler(req, res) {
           bookings: []
         }));
 
-        res.status(200).json({ slips: transformedSlips });
+        res.status(200).json(transformedSlips);
       } catch (error) {
         console.error('Error fetching slips:', error);
         res.status(500).json({ error: 'Internal server error' });

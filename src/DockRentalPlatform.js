@@ -2115,6 +2115,7 @@ const DockRentalPlatform = () => {
     
     const loadData = async () => {
       try {
+        // Updated $(date) - Force redeploy
         setSlipsLoading(true);
         
         // Load slips from Supabase

@@ -215,11 +215,11 @@ const DockRentalPlatform = () => {
   };
 
   // Helper function to calculate booking total with discount
-  const calculateBookingTotal = (checkIn, checkOut, pricePerNight) => {
+  const calculateBookingTotal = (checkIn, checkOut, price_per_night) => {
     if (!checkIn || !checkOut) return 0;
     
     const days = Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
-    const baseTotal = days * pricePerNight;
+    const baseTotal = days * price_per_night;
     
     // Apply 40% discount for 30-day bookings by renters
     if (currentUser && currentUser.user_type === 'renter' && days === 30) {
@@ -456,7 +456,7 @@ const DockRentalPlatform = () => {
             slipData: {
               name: editingSlip.name,
               description: editingDescription,
-              pricePerNight: editingSlip.pricePerNight,
+              price_per_night: editingSlip.price_per_night,
               images: editingSlip.images
             }
           }),
@@ -497,7 +497,7 @@ const DockRentalPlatform = () => {
 
   const handleEditPrice = (slip) => {
     setEditingSlip(slip);
-    setEditingPrice(slip.pricePerNight.toString());
+    setEditingPrice(slip.price_per_night.toString());
   };
 
   const handleSavePrice = async () => {
@@ -515,7 +515,7 @@ const DockRentalPlatform = () => {
             slipData: {
               name: editingSlip.name,
               description: editingSlip.description,
-              pricePerNight: parseFloat(editingPrice),
+              price_per_night: parseFloat(editingPrice),
               images: editingSlip.images
             }
           }),
@@ -527,7 +527,7 @@ const DockRentalPlatform = () => {
             // Update local state
             const updatedSlips = slips.map(slip => 
               slip.id === editingSlip.id 
-                ? { ...slip, pricePerNight: parseFloat(editingPrice) }
+                ? { ...slip, price_per_night: parseFloat(editingPrice) }
                 : slip
             );
             setSlips(updatedSlips);
@@ -582,7 +582,7 @@ const DockRentalPlatform = () => {
       .reduce((total, booking) => {
         const nights = Math.ceil((new Date(booking.checkOut) - new Date(booking.checkIn)) / (1000 * 60 * 60 * 24));
         const slip = slips.find(s => s.name === booking.slipName);
-        return total + (nights * (slip?.pricePerNight || 0));
+        return total + (nights * (slip?.price_per_night || 0));
       }, 0);
   };
 
@@ -601,7 +601,7 @@ const DockRentalPlatform = () => {
       .reduce((total, booking) => {
         const nights = Math.ceil((new Date(booking.checkOut) - new Date(booking.checkIn)) / (1000 * 60 * 60 * 24));
         const slip = slips.find(s => s.name === booking.slipName);
-        return total + (nights * (slip?.pricePerNight || 0));
+        return total + (nights * (slip?.price_per_night || 0));
       }, 0);
   };
 
@@ -708,7 +708,7 @@ const DockRentalPlatform = () => {
 
   const handlePaymentComplete = async (paymentResult) => {
     const nights = Math.ceil((new Date(bookingData.checkOut) - new Date(bookingData.checkIn)) / (1000 * 60 * 60 * 24));
-    const totalCost = nights * selectedSlip.pricePerNight;
+    const totalCost = nights * selectedSlip.price_per_night;
 
     const newBooking = {
       id: Date.now(),
@@ -808,12 +808,12 @@ const DockRentalPlatform = () => {
       }
     }
 
-    if (parseInt(bookingData.boatLength) > selectedSlip.maxLength) {
-      alert(`Boat length cannot exceed ${selectedSlip.maxLength} feet for this dock slip.`);
+    if (parseInt(bookingData.boatLength) > selectedSlip.max_length) {
+      alert(`Boat length cannot exceed ${selectedSlip.max_length} feet for this dock slip.`);
       return;
     }
 
-    const totalInfo = calculateBookingTotal(bookingData.checkIn, bookingData.checkOut, selectedSlip.pricePerNight);
+    const totalInfo = calculateBookingTotal(bookingData.checkIn, bookingData.checkOut, selectedSlip.price_per_night);
     const totalCost = bookingData.userType === 'homeowner' ? 0 : totalInfo.finalTotal;
 
     // For renters, show payment page instead of processing payment directly
@@ -924,10 +924,10 @@ const DockRentalPlatform = () => {
   };
 
   const filteredSlips = slips.filter(slip => {
-    if (searchFilters.maxLength && parseInt(searchFilters.maxLength) > slip.maxLength) return false;
+    if (searchFilters.maxLength && parseInt(searchFilters.maxLength) > slip.max_length) return false;
     if (searchFilters.priceRange) {
       const [min, max] = searchFilters.priceRange.split('-').map(Number);
-      if (slip.pricePerNight < min || slip.pricePerNight > max) return false;
+      if (slip.price_per_night < min || slip.price_per_night > max) return false;
     }
     return true;
   });
@@ -1757,7 +1757,7 @@ const DockRentalPlatform = () => {
             slipData: {
               name: editingSlip.name,
               description: editingSlip.description,
-              pricePerNight: editingSlip.pricePerNight,
+              price_per_night: editingSlip.price_per_night,
               dock_etiquette: editingEtiquette,
               images: editingSlip.images
             }
@@ -1804,7 +1804,7 @@ const DockRentalPlatform = () => {
           slipData: {
             name: slip.name,
             description: slip.description,
-            pricePerNight: slip.pricePerNight,
+            price_per_night: slip.price_per_night,
             dock_etiquette: slip.dockEtiquette,
             images: slip.images,
             available: !slip.available
@@ -2437,7 +2437,7 @@ const DockRentalPlatform = () => {
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span>Slip Rate:</span>
-                        <span>${selectedSlip.pricePerNight}/night</span>
+                        <span>${selectedSlip.price_per_night}/night</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Nights:</span>
@@ -2446,7 +2446,7 @@ const DockRentalPlatform = () => {
                         </span>
                       </div>
                       {(() => {
-                        const totalInfo = calculateBookingTotal(bookingData.checkIn, bookingData.checkOut, selectedSlip.pricePerNight);
+                        const totalInfo = calculateBookingTotal(bookingData.checkIn, bookingData.checkOut, selectedSlip.price_per_night);
                         return (
                           <>
                             {totalInfo.hasDiscount && (
@@ -3065,7 +3065,7 @@ const DockRentalPlatform = () => {
                       );
                       const slipRevenue = slipBookings.reduce((total, booking) => {
                         const nights = Math.ceil((new Date(booking.checkOut) - new Date(booking.checkIn)) / (1000 * 60 * 60 * 24));
-                        return total + (nights * slip.pricePerNight);
+                        return total + (nights * slip.price_per_night);
                       }, 0);
                       
                       return (
@@ -3214,12 +3214,12 @@ const DockRentalPlatform = () => {
                       ) : (
                         <div>
                           <p className="text-sm text-gray-600 mb-2">
-                            Current Price: <span className="font-medium">${slip.pricePerNight}/night</span>
+                            Current Price: <span className="font-medium">${slip.price_per_night}/night</span>
                           </p>
                           <button
                             onClick={() => {
                               setEditingSlip({...slip, editingType: 'price'});
-                              setEditingPrice(slip.pricePerNight.toString());
+                              setEditingPrice(slip.price_per_night.toString());
                             }}
                             className="px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
                           >

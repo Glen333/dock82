@@ -934,9 +934,9 @@ const DockRentalPlatform = () => {
 
   const SlipCard = ({ slip }) => (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-      {slip.images && (
+      {slip.image_url && (
         <img 
-          src={`${slip.images}?t=${Date.now()}`} 
+          src={`${slip.image_url}?t=${Date.now()}`} 
           alt={slip.name}
           className="w-full h-48 object-cover"
         />
@@ -952,11 +952,11 @@ const DockRentalPlatform = () => {
         <div className="space-y-2 mb-3">
           <div className="flex items-center text-sm text-gray-500">
             <Anchor className="w-4 h-4 mr-2" />
-            Max Length: {slip.maxLength}ft | Width: {slip.width}ft | Depth: {slip.depth}ft
+            Max Length: {slip.max_length}ft | Width: {slip.width}ft | Depth: {slip.depth}ft
           </div>
           <div className="flex items-center text-sm text-gray-500">
             <DollarSign className="w-4 h-4 mr-2" />
-            ${slip.pricePerNight}/night
+            ${slip.price_per_night}/night
           </div>
         </div>
         <div className="mb-3">

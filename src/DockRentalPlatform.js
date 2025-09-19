@@ -85,7 +85,10 @@ const DockRentalPlatform = () => {
   const [editingProfile, setEditingProfile] = useState({
     name: '',
     phone: '',
-    userType: ''
+    userType: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmNewPassword: ''
   });
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({ 
@@ -1342,7 +1345,10 @@ const DockRentalPlatform = () => {
       setEditingProfile({
         name: currentUser.name || '',
         phone: currentUser.phone || '',
-        userType: currentUser.user_type || 'renter'
+        userType: currentUser.user_type || 'renter',
+        currentPassword: '',
+        newPassword: '',
+        confirmNewPassword: ''
       });
       setShowProfileModal(true);
     }
@@ -1353,38 +1359,69 @@ const DockRentalPlatform = () => {
     if (!currentUser) return;
 
     try {
-      const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'update-user',
-          userId: currentUser.id,
-          userData: {
-            name: editingProfile.name,
-            phone: editingProfile.phone,
-            userType: editingProfile.userType
-          }
-        }),
-      });
+      // Check if user wants to change password
+      const isChangingPassword = editingProfile.currentPassword || editingProfile.newPassword || editingProfile.confirmNewPassword;
+      
+      if (isChangingPassword) {
+        // Validate password change fields
+        if (!editingProfile.currentPassword) {
+          alert('Please enter your current password to change it.');
+          return;
+        }
+        if (!editingProfile.newPassword) {
+          alert('Please enter a new password.');
+          return;
+        }
+        if (editingProfile.newPassword.length < 6) {
+          alert('New password must be at least 6 characters long.');
+          return;
+        }
+        if (editingProfile.newPassword !== editingProfile.confirmNewPassword) {
+          alert('New password and confirmation do not match.');
+          return;
+        }
 
-      const result = await response.json();
+        // Update password using Supabase Auth
+        const { error: passwordError } = await supabase.auth.updateUser({
+          password: editingProfile.newPassword
+        });
 
-      if (response.ok && result.success) {
-        // Update current user state
-        setCurrentUser({
-          ...currentUser,
+        if (passwordError) {
+          console.error('Password update error:', passwordError);
+          alert(`Failed to update password: ${passwordError.message}`);
+          return;
+        }
+      }
+
+      // Update user profile data in database
+      const { data: updatedUser, error: updateError } = await supabase
+        .from('users')
+        .update({
           name: editingProfile.name,
           phone: editingProfile.phone,
-          user_type: editingProfile.userType
-        });
-        
-        setShowProfileModal(false);
-        alert('✅ Profile updated successfully!');
-      } else {
-        alert('❌ Failed to update profile: ' + (result.error || 'Unknown error'));
+          user_type: editingProfile.userType,
+          updated_at: new Date().toISOString()
+        })
+        .eq('email', currentUser.email)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Profile update error:', updateError);
+        alert(`Failed to update profile: ${updateError.message}`);
+        return;
       }
+
+      // Update current user state
+      setCurrentUser({
+        ...currentUser,
+        name: editingProfile.name,
+        phone: editingProfile.phone,
+        user_type: editingProfile.userType
+      });
+      
+      setShowProfileModal(false);
+      alert('✅ Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
       alert('❌ Failed to update profile. Please try again.');
@@ -4164,6 +4201,47 @@ const DockRentalPlatform = () => {
                   <option value="renter">Renter</option>
                   <option value="homeowner">Homeowner</option>
                 </select>
+              </div>
+
+              {/* Password Change Section */}
+              <div className="border-t pt-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Change Password</h3>
+                <p className="text-sm text-gray-600 mb-4">Leave blank to keep current password</p>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                    <input
+                      type="password"
+                      value={editingProfile.currentPassword}
+                      onChange={(e) => setEditingProfile({...editingProfile, currentPassword: e.target.value})}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter current password"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                    <input
+                      type="password"
+                      value={editingProfile.newPassword}
+                      onChange={(e) => setEditingProfile({...editingProfile, newPassword: e.target.value})}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter new password (min 6 characters)"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={editingProfile.confirmNewPassword}
+                      onChange={(e) => setEditingProfile({...editingProfile, confirmNewPassword: e.target.value})}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Confirm new password"
+                    />
+                  </div>
+                </div>
               </div>
               
               <div className="flex space-x-3 pt-4">

@@ -193,7 +193,7 @@ const DockRentalPlatform = () => {
       description: "Prime waterfront slip with easy access to main channel",
       dockEtiquette: "Dock Slip Rental Rules\n\n1. Be courteous to our neighborhood\nRespect fellow boaters and the dock community. We're all here to enjoy the water together.\n\n2. Mind the tides when tying up\nDon't tie your boat too tight. Boats may be damaged or damage the dock if tied too tight. Leave enough slack for extreme water level changes.\n\n3. Pack it in, pack it out\nTake everything you brought with you when you leave. Don't leave trash, gear, or personal items behind.\n\n4. Clean up after yourself\nClean the fish cleaning table after use. Leave shared facilities ready for the next person.\n\n5. Use only your assigned slip\nStay in your designated slip number.",
       available: true,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop&crop=center"],
+      images: [],
       bookings: []
     },
     {
@@ -207,7 +207,7 @@ const DockRentalPlatform = () => {
       description: "Convenient slip close to parking area",
       dockEtiquette: "Dock Slip Rental Rules\n\n1. Be courteous to our neighborhood\nRespect fellow boaters and the dock community. We're all here to enjoy the water together.\n\n2. Mind the tides when tying up\nDon't tie your boat too tight. Boats may be damaged or damage the dock if tied too tight. Leave enough slack for extreme water level changes.\n\n3. Pack it in, pack it out\nTake everything you brought with you when you leave. Don't leave trash, gear, or personal items behind.\n\n4. Clean up after yourself\nClean the fish cleaning table after use. Leave shared facilities ready for the next person.\n\n5. Use only your assigned slip\nStay in your designated slip number.",
       available: false, // Set to false since there's a confirmed booking
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop&crop=center"],
+      images: [],
       bookings: []
     },
     {
@@ -220,7 +220,7 @@ const DockRentalPlatform = () => {
       amenities: ["Water", "Electric (120V)"],
       description: "Protected slip perfect for smaller boats",
       available: false,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerh=300https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerfit=crophttps://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centercrop=center"],
+      images: [],
       bookings: [
         { id: 1, guestName: "John Smith", checkIn: "2025-06-25", checkOut: "2025-06-27", status: "confirmed" }
       ]
@@ -235,7 +235,7 @@ const DockRentalPlatform = () => {
       amenities: ["Water", "Electric (120V)"],
       description: "Quiet slip at the end of the dock",
       available: true,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerh=300https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerfit=crophttps://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centercrop=center"],
+      images: [],
       bookings: []
     },
     {
@@ -248,7 +248,7 @@ const DockRentalPlatform = () => {
       amenities: ["Water", "Electric (120V)"],
       description: "Well-positioned slip with good water circulation",
       available: true,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerh=300https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerfit=crophttps://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centercrop=center"],
+      images: [],
       bookings: []
     },
     {
@@ -261,7 +261,7 @@ const DockRentalPlatform = () => {
       amenities: ["Water", "Electric (120V)"],
       description: "Central location with easy dock access",
       available: true,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerh=300https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerfit=crophttps://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centercrop=center"],
+      images: [],
       bookings: []
     },
     {
@@ -274,7 +274,7 @@ const DockRentalPlatform = () => {
       amenities: ["Water", "Electric (120V)"],
       description: "Basic slip perfect for day trips",
       available: true,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerh=300https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerfit=crophttps://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centercrop=center"],
+      images: [],
       bookings: []
     },
     {
@@ -287,7 +287,7 @@ const DockRentalPlatform = () => {
       amenities: ["Water", "Electric (120V)"],
       description: "Well-maintained slip with good water access",
       available: true,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerh=300https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerfit=crophttps://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centercrop=center"],
+      images: [],
       bookings: []
     },
     {
@@ -300,7 +300,7 @@ const DockRentalPlatform = () => {
       amenities: ["Water", "Electric (120V)"],
       description: "",
       available: true,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerh=300https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerfit=crophttps://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centercrop=center"],
+      images: [],
       bookings: []
     },
     {
@@ -313,7 +313,7 @@ const DockRentalPlatform = () => {
       amenities: ["Water", "Electric (120V)"],
       description: "",
       available: false,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerh=300https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerfit=crophttps://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centercrop=center"],
+      images: [],
       bookings: [
         { id: 2, guestName: "Sarah Johnson", checkIn: "2025-06-28", checkOut: "2025-06-30", status: "pending" }
       ]
@@ -328,7 +328,7 @@ const DockRentalPlatform = () => {
       amenities: ["Water", "Electric (120V)"],
       description: "",
       available: true,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerh=300https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerfit=crophttps://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centercrop=center"],
+      images: [],
       bookings: []
     },
     {
@@ -341,7 +341,7 @@ const DockRentalPlatform = () => {
       amenities: ["Water", "Electric (120V)"],
       description: "",
       available: true,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerh=300https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centerfit=crophttps://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Sliph=300https://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipfit=crophttps://via.placeholder.com/400x300/0066cc/ffffff?text=Dock+Slipcrop=centercrop=center"],
+      images: [],
       bookings: []
     },
     {
@@ -355,7 +355,7 @@ const DockRentalPlatform = () => {
       description: "Premium slip with excellent amenities and easy access",
       dockEtiquette: "Dock Slip Rental Rules\n\n1. Be courteous to our neighborhood\nRespect fellow boaters and the dock community. We're all here to enjoy the water together.\n\n2. Mind the tides when tying up\nDon't tie your boat too tight. Boats may be damaged or damage the dock if tied too tight. Leave enough slack for extreme water level changes.\n\n3. Pack it in, pack it out\nTake everything you brought with you when you leave. Don't leave trash, gear, or personal items behind.\n\n4. Clean up after yourself\nClean the fish cleaning table after use. Leave shared facilities ready for the next person.\n\n5. Use only your assigned slip\nStay in your designated slip number.",
       available: false,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop&crop=center"],
+      images: [],
       bookings: []
     },
     {
@@ -369,7 +369,7 @@ const DockRentalPlatform = () => {
       description: "Premium slip with excellent amenities and easy access",
       dockEtiquette: "Dock Slip Rental Rules\n\n1. Be courteous to our neighborhood\nRespect fellow boaters and the dock community. We're all here to enjoy the water together.\n\n2. Mind the tides when tying up\nDon't tie your boat too tight. Boats may be damaged or damage the dock if tied too tight. Leave enough slack for extreme water level changes.\n\n3. Pack it in, pack it out\nTake everything you brought with you when you leave. Don't leave trash, gear, or personal items behind.\n\n4. Clean up after yourself\nClean the fish cleaning table after use. Leave shared facilities ready for the next person.\n\n5. Use only your assigned slip\nStay in your designated slip number.",
       available: false,
-      images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop&crop=center"],
+      images: [],
       bookings: []
     }
   ]);
@@ -761,141 +761,8 @@ const DockRentalPlatform = () => {
     }
   };
 
-  const handleEditImage = (slip) => {
-    setEditingSlip({...slip, editingType: 'image'});
-    setEditingImage(slip.images || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop&crop=center');
-  };
 
-  const handleSetAerialPhotoForAll = async () => {
-    const aerialPhotoUrl = prompt(
-      'Enter the URL for your aerial dock photo:', 
-      'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop&crop=center'
-    );
-    
-    if (!aerialPhotoUrl) {
-      alert('No URL provided. Operation cancelled.');
-      return;
-    }
-    
-    try {
-      let successCount = 0;
-      for (const slip of slips) {
-        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/slips`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'update-slip',
-            slipId: slip.id,
-            slipData: {
-              name: slip.name,
-              description: slip.description,
-              pricePerNight: slip.pricePerNight,
-              images: aerialPhotoUrl,
-              dock_etiquette: slip.dockEtiquette
-            }
-          }),
-        });
-        
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            successCount++;
-          }
-        }
-      }
-      
-      if (successCount > 0) {
-        const updatedSlips = slips.map(slip => ({
-          ...slip,
-          images: aerialPhotoUrl
-        }));
-        setSlips(updatedSlips);
-        alert(`✅ Successfully updated ${successCount} dock slips with your aerial photo!`);
-      } else {
-        alert('❌ Failed to update slip images. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error updating slip images:', error);
-      alert('❌ Failed to update slip images. Please try again.');
-    }
-  };
 
-  const handleImageFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.match('image.*')) {
-        alert('Please select an image file');
-        return;
-      }
-      
-      // Validate file size (5MB limit)
-      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-      if (file.size > maxSize) {
-        alert('❌ File size must be less than 5MB.');
-        return;
-      }
-      
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setEditingImage(e.target.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSaveImage = async () => {
-    if (editingSlip && editingImage) {
-      setIsUploading(true);
-      try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/slips`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'update-slip',
-            slipId: editingSlip.id,
-            slipData: {
-              name: editingSlip.name,
-              description: editingSlip.description,
-              pricePerNight: editingSlip.pricePerNight,
-              images: editingImage,
-              dock_etiquette: editingSlip.dockEtiquette
-            }
-          }),
-        });
-        
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            const updatedSlips = slips.map(slip => 
-              slip.id === editingSlip.id 
-                ? { ...slip, images: editingImage }
-                : slip
-            );
-            setSlips(updatedSlips);
-            setEditingSlip(null);
-            setEditingImage('');
-            setImageFile(null);
-            alert('✅ Image updated successfully!');
-          } else {
-            alert('❌ Failed to update image: ' + (result.error || 'Unknown error'));
-          }
-        } else {
-          alert('❌ Failed to update image: Server error');
-        }
-      } catch (error) {
-        console.error('Error updating image:', error);
-        alert('❌ Failed to update image. Please try again.');
-      } finally {
-        setIsUploading(false);
-      }
-    }
-  };
 
   const handleApproveBooking = async (bookingId) => {
     const booking = bookings.find(b => b.id === bookingId);
@@ -1282,7 +1149,7 @@ const DockRentalPlatform = () => {
   const SlipCard = ({ slip }) => (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
       <img 
-        src={slip.images || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop&crop=center'} 
+        src={slip.images || 'https://via.placeholder.com/400x300?text=No+Image'} 
         alt={slip.name}
         className="w-full h-48 object-cover"
         onError={(e) => {
@@ -2386,7 +2253,7 @@ const DockRentalPlatform = () => {
             ...slip,
             images: Array.isArray(slip.images) 
               ? slip.images[0] 
-              : (slip.images || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop&crop=center')
+              : (slip.images || '')
           }));
           
           setSlips(normalizedSlips);
@@ -2417,54 +2284,6 @@ const DockRentalPlatform = () => {
     loadData();
   }, []);
 
-  // Function to reset all images to default
-  const handleResetAllImages = async () => {
-    const defaultImage = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop&crop=center';
-    
-    if (!confirm('This will reset all slip images to the default. Continue?')) {
-      return;
-    }
-    
-    try {
-      let successCount = 0;
-      for (const slip of slips) {
-        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/slips`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'update-slip',
-            slipId: slip.id,
-            slipData: {
-              name: slip.name,
-              description: slip.description,
-              pricePerNight: slip.pricePerNight,
-              images: defaultImage,
-              dock_etiquette: slip.dockEtiquette
-            }
-          }),
-        });
-        
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            successCount++;
-          }
-        }
-      }
-      
-      const updatedSlips = slips.map(slip => ({
-        ...slip,
-        images: defaultImage
-      }));
-      setSlips(updatedSlips);
-      alert(`✅ Reset ${successCount} dock slip images to default!`);
-    } catch (error) {
-      console.error('Error resetting images:', error);
-      alert('❌ Failed to reset images. Please try again.');
-    }
-  };
 
 
 
@@ -3580,76 +3399,12 @@ const DockRentalPlatform = () => {
                         </div>
                       )}
 
-                      {/* Image Editing */}
-                      {editingSlip?.id === slip.id && editingSlip.editingType === 'image' ? (
-                        <div className="space-y-2 mt-3">
-                          <label className="block text-sm font-medium text-gray-700">Slip Image</label>
-                          
-                          {/* URL Input */}
-                          <div className="mb-2">
-                            <input
-                              type="text"
-                              value={editingImage}
-                              onChange={(e) => setEditingImage(e.target.value)}
-                              placeholder="Enter image URL or upload file below"
-                              className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                            />
-                          </div>
-                          
-                          {/* File Upload */}
-                          <div className="text-center text-xs text-gray-500 my-2">- OR -</div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageFileChange}
-                            className="w-full text-sm p-2 border border-gray-300 rounded-md"
-                          />
-                          <p className="text-xs text-gray-500">Max size: 5MB</p>
-                          
-                          {/* Preview */}
-                          {editingImage && (
-                            <div className="mt-2">
-                              <img 
-                                src={editingImage} 
-                                alt="Preview"
-                                className="w-full h-32 object-cover rounded border"
-                                onError={(e) => {
-                                  e.target.src = 'https://via.placeholder.com/400x200?text=Invalid+Image';
-                                }}
-                              />
-                            </div>
-                          )}
-                          
-                          {/* Action Buttons */}
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={handleSaveImage}
-                              disabled={isUploading || !editingImage}
-                              className={`px-3 py-1 rounded text-sm ${
-                                isUploading || !editingImage 
-                                  ? 'bg-gray-400 cursor-not-allowed' 
-                                  : 'bg-green-600 hover:bg-green-700'
-                              } text-white`}
-                            >
-                              {isUploading ? 'Saving...' : 'Save Image'}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingSlip(null);
-                                setEditingImage('');
-                                setImageFile(null);
-                              }}
-                              className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
+                      {/* Image Display */}
+                      {(
                         <div className="mt-3">
                           <div className="mb-2">
                             <img 
-                              src={slip.images || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop&crop=center'} 
+                              src={slip.images || 'https://via.placeholder.com/400x300?text=No+Image'} 
                               alt={slip.name}
                               className="w-full h-24 object-cover rounded border"
                               onError={(e) => {
@@ -3657,12 +3412,6 @@ const DockRentalPlatform = () => {
                               }}
                             />
                           </div>
-                          <button
-                            onClick={() => handleEditImage(slip)}
-                            className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700"
-                          >
-                            Edit Image
-                          </button>
                         </div>
                       )}
                     </div>
@@ -3681,43 +3430,6 @@ const DockRentalPlatform = () => {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <button
-                      onClick={handleSetAerialPhotoForAll}
-                      className="p-4 bg-blue-100 hover:bg-blue-200 rounded-lg border-2 border-blue-300 transition-colors"
-                    >
-                      <div className="text-center">
-                        <div className="text-2xl mb-2">🛩️</div>
-                        <h5 className="font-semibold text-blue-800 mb-1">Set Aerial Photo</h5>
-                        <p className="text-xs text-blue-600">Apply aerial photo to all slips</p>
-                      </div>
-                    </button>
-                    
-                    <button
-                      onClick={handleResetAllImages}
-                      className="p-4 bg-red-100 hover:bg-red-200 rounded-lg border-2 border-red-300 transition-colors"
-                    >
-                      <div className="text-center">
-                        <div className="text-2xl mb-2">🔄</div>
-                        <h5 className="font-semibold text-red-800 mb-1">Reset All Images</h5>
-                        <p className="text-xs text-red-600">Reset to default images</p>
-                      </div>
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        localStorage.removeItem('dockSlipImages');
-                        alert('All saved images have been cleared from storage!');
-                      }}
-                      className="p-4 bg-gray-100 hover:bg-gray-200 rounded-lg border-2 border-gray-300 transition-colors"
-                    >
-                      <div className="text-center">
-                        <div className="text-2xl mb-2">🗑️</div>
-                        <h5 className="font-semibold text-gray-800 mb-1">Clear Storage</h5>
-                        <p className="text-xs text-gray-600">Clear saved image data</p>
-                      </div>
-                    </button>
-                  </div>
                 </div>
 
                 {/* Dock Etiquette Management */}

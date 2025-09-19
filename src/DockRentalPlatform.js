@@ -2117,35 +2117,31 @@ const DockRentalPlatform = () => {
       try {
         setSlipsLoading(true);
         
-        // Load slips from API with cache busting
-        const slipsResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/slips?t=${Date.now()}`);
-        if (slipsResponse.ok) {
-          const slipsData = await slipsResponse.json();
-          const slipsArray = slipsData.slips || [];
-          
-          setSlips(slipsArray);
+        // Load slips from Supabase
+        const { data: slipsData, error: slipsError } = await supabase
+          .from('slips')
+          .select('*')
+          .order('id');
+
+        if (slipsError) {
+          console.error('Error loading slips from Supabase:', slipsError);
+        } else {
+          setSlips(slipsData || []);
         }
 
-        // Load bookings from API
-        const bookingsResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/bookings`);
-        if (bookingsResponse.ok) {
-          const bookingsData = await bookingsResponse.json();
-          setBookings(bookingsData.bookings || []);
+        // Load bookings from Supabase
+        const { data: bookingsData, error: bookingsError } = await supabase
+          .from('bookings')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (bookingsError) {
+          console.error('Error loading bookings from Supabase:', bookingsError);
+        } else {
+          setBookings(bookingsData || []);
         }
       } catch (error) {
-        console.error('Error loading data from API:', error);
-        // Fallback to localStorage if API fails
-        const savedSlipsData = localStorage.getItem('dockSlipsData');
-        if (savedSlipsData) {
-          try {
-            const slipData = JSON.parse(savedSlipsData);
-            if (slipData && slipData.length > 0) {
-              setSlips(slipData);
-            }
-          } catch (error) {
-            console.error('Error loading saved slip data:', error);
-          }
-        }
+        console.error('Error loading data from Supabase:', error);
       } finally {
         setSlipsLoading(false);
       }

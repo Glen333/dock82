@@ -100,6 +100,7 @@ const DockRentalPlatform = () => {
   const [editingImage, setEditingImage] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [slipsLoading, setSlipsLoading] = useState(true);
   const [cancellationPolicy] = useState({
     homeowner: { fee: 0, description: "Free cancellation anytime" },
     renter: {
@@ -374,33 +375,6 @@ const DockRentalPlatform = () => {
     }
   ]);
 
-  // Fetch slips from API on component mount and replace hardcoded data
-  useEffect(() => {
-    const fetchSlips = async () => {
-      try {
-        console.log('Fetching slips from API...');
-        const response = await fetch('/api/slips');
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('Fetched slips from API:', data.slips?.length || 0);
-        
-        if (data.slips && Array.isArray(data.slips) && data.slips.length > 0) {
-          setSlips(data.slips);
-          console.log('✅ Replaced hardcoded data with API data');
-        } else {
-          console.log('⚠️ No API data found, keeping hardcoded data as fallback');
-        }
-      } catch (error) {
-        console.error('Error fetching slips:', error);
-        console.log('⚠️ API failed, keeping hardcoded data as fallback');
-      }
-    };
-
-    fetchSlips();
-  }, []);
 
   // Helper function to validate dates
   const validateDates = (checkIn, checkOut) => {
@@ -2246,6 +2220,8 @@ const DockRentalPlatform = () => {
     
     const loadData = async () => {
       try {
+        setSlipsLoading(true);
+        
         // Load slips from API
         const slipsResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/slips`);
         if (slipsResponse.ok) {
@@ -2283,6 +2259,8 @@ const DockRentalPlatform = () => {
             console.error('Error loading saved slip data:', error);
           }
         }
+      } finally {
+        setSlipsLoading(false);
       }
     };
     loadData();
@@ -2298,6 +2276,18 @@ const DockRentalPlatform = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading your session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading screen while loading slips data
+  if (slipsLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dock slips...</p>
         </div>
       </div>
     );

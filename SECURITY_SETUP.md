@@ -23,6 +23,14 @@ All tables have RLS enabled with the following policies:
 - **Insert**: Users can create bookings for themselves or as homeowners
 - **Update**: Users can update their own bookings (for cancellations, etc.)
 
+#### Storage Buckets
+- **slip-images**: 
+  - Public read access (anyone can view slip images)
+  - Authenticated users can upload slip images
+- **documents**:
+  - Users can only access files in their own folder (`{user_id}/filename`)
+  - Path-based security using user ID prefix
+
 ### Database Constraints
 
 #### Business Rule Enforcement
@@ -89,6 +97,11 @@ VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...
 - Public read access for slip availability
 - Admin-only write access for slip management
 - Real-time updates for availability changes
+
+### File Storage Access
+- **Slip Images**: Public read, authenticated upload
+- **User Documents**: Private to user, organized by user ID folders
+- **File Upload Security**: Path-based access control prevents unauthorized access
 
 ## Security Best Practices
 

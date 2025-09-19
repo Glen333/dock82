@@ -138,3 +138,23 @@ CREATE POLICY "bookings_update_own" ON bookings
     renter_auth_id = auth.uid()
     OR lower(guest_email) = lower((SELECT email FROM users WHERE auth_user_id = auth.uid()))
   );
+
+-- Supabase Storage RLS Policies
+-- Slip images: anyone can read, only authenticated users can upload
+CREATE POLICY "slip_images_read" ON storage.objects
+  FOR SELECT USING (bucket_id = 'slip-images');
+
+CREATE POLICY "slip_images_write" ON storage.objects
+  FOR INSERT TO authenticated USING (bucket_id = 'slip-images');
+
+-- Documents: only owner can read/write (prefix by user id)
+CREATE POLICY "docs_rw_owner" ON storage.objects
+  FOR ALL TO authenticated
+  USING (
+    bucket_id = 'documents'
+    AND (auth.uid())::text = split_part(name, '/', 1)  -- path like: {uid}/filename.pdf
+  )
+  WITH CHECK (
+    bucket_id = 'documents'
+    AND (auth.uid())::text = split_part(name, '/', 1)
+  );

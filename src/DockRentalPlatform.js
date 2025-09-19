@@ -5,6 +5,9 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import PaymentPage from './PaymentPage';
 import { supabase } from './supabase';
 
+// Deploy marker to force Vercel redeploy
+console.log("DEPLOY_MARKER 2025-09-19T17:00-0400");
+
 // Stripe configuration - Use React environment variables
 const stripePromise = loadStripe(
   process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_live_51Rp9wh2zul6IUZC2Bi1RPfczb4RfYtTVcjp764dVLKx4XHoWbbegWCTTmJ9wPJ6DjNQzBxwbITzXeTcocCi9RNO500X6Z9yZER'

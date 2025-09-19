@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { useStripe, useElements } from '@stripe/react-stripe-js';
 
 const PaymentPage = ({ bookingData, selectedSlip, onPaymentComplete, onBack }) => {
   const stripe = useStripe();
@@ -97,7 +97,7 @@ const PaymentPage = ({ bookingData, selectedSlip, onPaymentComplete, onBack }) =
     const checkIn = new Date(bookingData.checkIn);
     const checkOut = new Date(bookingData.checkOut);
     const days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-    const baseTotal = days * selectedSlip.pricePerDay;
+    const baseTotal = days * selectedSlip.price_per_night;
     
     // Apply 40% discount for 30-day bookings
     if (days === 30) {

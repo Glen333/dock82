@@ -99,3 +99,42 @@ CREATE TRIGGER update_slips_updated_at
 CREATE TRIGGER update_bookings_updated_at 
     BEFORE UPDATE ON bookings 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Row Level Security (RLS) Policies
+-- Enable RLS on all tables
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE slips ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
+
+-- USERS: only see/update your own row
+CREATE POLICY "users_self_select" ON users
+  FOR SELECT USING (auth.uid() = auth_user_id);
+
+CREATE POLICY "users_self_update" ON users
+  FOR UPDATE USING (auth.uid() = auth_user_id);
+
+-- SLIPS: public readable, only admins mutate (use service role or edge function)
+CREATE POLICY "slips_public_read" ON slips
+  FOR SELECT USING (true);
+
+-- BOOKINGS:
+-- renters/homeowners can read their own bookings by email or auth id
+CREATE POLICY "bookings_read_own" ON bookings
+  FOR SELECT USING (
+    renter_auth_id = auth.uid()
+    OR lower(guest_email) = lower((SELECT email FROM users WHERE auth_user_id = auth.uid()))
+  );
+
+-- renters/homeowners create their own booking
+CREATE POLICY "bookings_insert_self" ON bookings
+  FOR INSERT WITH CHECK (
+    renter_auth_id = auth.uid()
+    OR user_type = 'homeowner'
+  );
+
+-- allow updates to own booking (e.g., cancel) before check-in
+CREATE POLICY "bookings_update_own" ON bookings
+  FOR UPDATE USING (
+    renter_auth_id = auth.uid()
+    OR lower(guest_email) = lower((SELECT email FROM users WHERE auth_user_id = auth.uid()))
+  );

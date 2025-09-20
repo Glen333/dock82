@@ -1,7 +1,6 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
-  "comment": "Force redeploy - $(date)",
   "builds": [
     {
       "src": "package.json",

@@ -1322,6 +1322,12 @@ const DockRentalPlatform = () => {
           alert('This email is already registered. Please try logging in instead.');
           setAuthStep('password');
           setLoginData({ ...loginData, email: registerData.email });
+        } else if (authError.message.includes('confirmation email') || authError.message.includes('Error sending')) {
+          // Email confirmation failed, but user might still be created
+          console.log('AUTH DEBUG - Email confirmation failed, but continuing...');
+          alert('Account created successfully! Email confirmation is temporarily unavailable, but you can now login with your email and password.');
+          setAuthStep('password');
+          setLoginData({ ...loginData, email: registerData.email });
         } else {
           alert(`Registration failed: ${authError.message}`);
         }

@@ -19,6 +19,7 @@ const supabaseAnonKey = (envKey && envKey !== 'undefined' && envKey.trim() !== '
 
 console.log('Final Supabase URL:', supabaseUrl);
 console.log('Final Supabase Key:', supabaseAnonKey ? 'Present' : 'Missing');
+console.log('Supabase Key (first 20 chars):', supabaseAnonKey ? supabaseAnonKey.substring(0, 20) + '...' : 'Missing');
 
 // Validate URL before creating client
 if (!supabaseUrl || supabaseUrl === 'undefined' || !supabaseUrl.startsWith('https://')) {

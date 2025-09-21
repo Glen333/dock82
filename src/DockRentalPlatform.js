@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, MapPin, Anchor, Clock, DollarSign, User, Settings, Plus, Edit, Trash2, Check, X, Filter, Search, CreditCard, Lock, Eye, EyeOff } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import PaymentPage from './PaymentPage';
 import { supabase } from './supabase';
 
 // Deploy marker to force Vercel redeploy
@@ -13,10 +12,91 @@ const stripePromise = loadStripe(
   process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_live_51Rp9wh2zul6IUZC2Bi1RPfczb4RfYtTVcjp764dVLKx4XHoWbbegWCTTmJ9wPJ6DjNQzBxwbITzXeTcocCi9RNO500X6Z9yZER'
 );
 
-const DockRentalPlatform = () => {
+// Payment Component that can use Stripe hooks
+const PaymentComponent = ({ onPaymentComplete, bookingData, totalCost, selectedSlip }) => {
   const stripe = useStripe();
   const elements = useElements();
   
+  const processPayment = async () => {
+    if (!stripe || !elements) {
+      return { success: false, error: 'Stripe Elements failed to load. Payment will not work.' };
+    }
+    
+    try {
+      // Create payment intent on backend
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${apiUrl}/api/create-payment-intent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: totalCost,
+          currency: 'usd',
+          bookingData: bookingData
+        }),
+      });
+      
+      const { clientSecret } = await response.json();
+      
+      // Confirm payment with Stripe
+      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: elements.getElement(CardElement),
+          billing_details: {
+            name: bookingData.guestName,
+            email: bookingData.guestEmail,
+          },
+        },
+      });
+      
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      
+      if (paymentIntent.status === 'succeeded') {
+        return { success: true, paymentIntent };
+      }
+      
+      return { success: false, error: 'Payment failed' };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  };
+  
+  return (
+    <div className="space-y-6">
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h3 className="text-lg font-semibold mb-4">Payment Information</h3>
+        <CardElement 
+          options={{
+            style: {
+              base: {
+                fontSize: '16px',
+                color: '#424770',
+                '::placeholder': {
+                  color: '#aab7c4',
+                },
+              },
+            },
+          }}
+        />
+      </div>
+      
+      <button
+        onClick={async () => {
+          const result = await processPayment();
+          onPaymentComplete(result);
+        }}
+        className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors"
+      >
+        Complete Payment
+      </button>
+    </div>
+  );
+};
+
+const DockRentalPlatform = () => {
   const [currentView, setCurrentView] = useState('browse');
   const [selectedSlip, setSelectedSlip] = useState(null);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
@@ -615,12 +695,6 @@ const DockRentalPlatform = () => {
     setPaymentProcessing(true);
     setPaymentError(null);
     
-    if (!stripe || !elements) {
-      setPaymentError('Stripe Elements failed to load. Payment will not work.');
-      setPaymentProcessing(false);
-      return { success: false, error: 'Stripe not loaded' };
-    }
-    
     try {
       // Create payment intent on backend
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
@@ -638,69 +712,13 @@ const DockRentalPlatform = () => {
       
       const { clientSecret } = await response.json();
       
-      // Confirm payment with Stripe
-      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: elements.getElement(CardElement),
-          billing_details: {
-            name: bookingData.guestName,
-            email: bookingData.guestEmail,
-          },
-        },
-      });
-      
-      if (error) {
-        setPaymentError(error.message);
-        return { success: false, error: error.message };
-      }
-      
-      if (paymentIntent.status === 'succeeded') {
-        // Confirm payment on backend
-        const confirmResponse = await fetch(`${apiUrl}/api/confirm-payment`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            paymentIntentId: paymentIntent.id,
-            bookingData: bookingData,
-            totalCost: totalCost
-          }),
-        });
-        
-        const confirmResult = await confirmResponse.json();
-        
-        if (confirmResult.success) {
-          // Send email notifications
-          await sendEmailNotification('paymentReceipt', bookingData.guestEmail, {
-            guestName: bookingData.guestName,
-            slipName: selectedSlip.name,
-            paymentIntentId: paymentIntent.id,
-            amount: totalCost,
-            paymentMethod: 'stripe'
-          });
-          
-          await sendEmailNotification('bookingConfirmation', bookingData.guestEmail, {
-            guestName: bookingData.guestName,
-            slipName: selectedSlip.name,
-            checkIn: bookingData.checkIn,
-            checkOut: bookingData.checkOut,
-            boatMakeModel: bookingData.boatMakeModel,
-            boatLength: bookingData.boatLength,
-            totalAmount: totalCost
-          });
-        }
-        
-        return { success: true, paymentIntentId: paymentIntent.id };
-      }
-      
-      return { success: false, error: 'Payment failed' };
-      
-    } catch (error) {
-      setPaymentError('Payment processing failed. Please try again.');
-      return { success: false, error: error.message };
-    } finally {
+      // For now, just return success - the actual payment will be handled by PaymentComponent
       setPaymentProcessing(false);
+      return { success: true, clientSecret };
+    } catch (error) {
+      setPaymentError(error.message);
+      setPaymentProcessing(false);
+      return { success: false, error: error.message };
     }
   };
 
@@ -2263,12 +2281,26 @@ const DockRentalPlatform = () => {
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         {showPaymentPage ? (
-          <PaymentPage
-            bookingData={bookingData}
-            selectedSlip={selectedSlip}
-            onPaymentComplete={handlePaymentComplete}
-            onBack={() => setShowPaymentPage(false)}
-          />
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">Complete Your Booking</h2>
+                <button
+                  onClick={() => setShowPaymentPage(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <PaymentComponent
+                bookingData={bookingData}
+                selectedSlip={selectedSlip}
+                totalCost={totalInfo.finalTotal}
+                onPaymentComplete={handlePaymentComplete}
+              />
+            </div>
+          </div>
         ) : currentView === 'browse' && (
           <>
             {/* Search and Filters */}

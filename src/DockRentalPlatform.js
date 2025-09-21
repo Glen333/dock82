@@ -301,7 +301,15 @@ const DockRentalPlatform = () => {
 
   // Helper function to calculate booking total with discount
   const calculateBookingTotal = (checkIn, checkOut, price_per_night) => {
-    if (!checkIn || !checkOut) return 0;
+    if (!checkIn || !checkOut || !price_per_night) {
+      return {
+        baseTotal: 0,
+        discount: 0,
+        finalTotal: 0,
+        days: 0,
+        hasDiscount: false
+      };
+    }
     
     const days = Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
     const baseTotal = days * price_per_night;
@@ -493,7 +501,7 @@ const DockRentalPlatform = () => {
       type: 'cancellation',
       recipient: 'Admin',
       subject: `Booking Cancelled - ${booking.slipName}`,
-      message: `${booking.guestName} has cancelled their booking for ${booking.checkIn} to ${booking.checkOut}. Reason: ${cancellationReason}. Refund: $${refundAmount.toFixed(2)}`,
+      message: `${booking.guestName} has cancelled their booking for ${booking.checkIn} to ${booking.checkOut}. Reason: ${cancellationReason}. Refund: $${(refundAmount || 0).toFixed(2)}`,
       timestamp: new Date().toLocaleString()
     }]);
 
@@ -503,7 +511,7 @@ const DockRentalPlatform = () => {
     if (booking.userType === 'homeowner') {
       alert('Booking cancelled successfully. No charges were applied.');
     } else {
-      alert(`Booking cancelled. Refund amount: $${refundAmount.toFixed(2)}${cancellationFee > 0 ? ` (Cancellation fee: $${cancellationFee.toFixed(2)})` : ''}`);
+      alert(`Booking cancelled. Refund amount: $${(refundAmount || 0).toFixed(2)}${cancellationFee > 0 ? ` (Cancellation fee: $${(cancellationFee || 0).toFixed(2)})` : ''}`);
     }
   };
 
@@ -982,7 +990,7 @@ const DockRentalPlatform = () => {
     } else {
       // For renters, check if payment was processed
       if (paymentSuccessful) {
-        alert(`Payment successful! Amount: $${totalCost.toFixed(2)}. Your dock permit will be emailed for self check-in.`);
+        alert(`Payment successful! Amount: $${(totalCost || 0).toFixed(2)}. Your dock permit will be emailed for self check-in.`);
       } else {
         alert('Booking request submitted! Payment will be processed on check-in date. Your dock permit will be emailed for self check-in.');
       }
@@ -2521,7 +2529,7 @@ const DockRentalPlatform = () => {
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span>Slip Rate:</span>
-                        <span>${selectedSlip.price_per_night}/night</span>
+                        <span>${selectedSlip.price_per_night || 0}/night</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Nights:</span>
@@ -2537,11 +2545,11 @@ const DockRentalPlatform = () => {
                               <>
                                 <div className="flex justify-between text-green-600">
                                   <span>Base Total:</span>
-                                  <span>${totalInfo.baseTotal.toFixed(2)}</span>
+                                  <span>${(totalInfo.baseTotal || 0).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-green-600">
                                   <span>30-Day Discount (40%):</span>
-                                  <span>-${totalInfo.discount.toFixed(2)}</span>
+                                  <span>-${(totalInfo.discount || 0).toFixed(2)}</span>
                                 </div>
                               </>
                             )}
@@ -2549,7 +2557,7 @@ const DockRentalPlatform = () => {
                               <div className="flex justify-between">
                                 <span>Total:</span>
                                 <span className={totalInfo.hasDiscount ? 'text-green-600' : ''}>
-                                  ${totalInfo.finalTotal.toFixed(2)}
+                                  ${(totalInfo.finalTotal || 0).toFixed(2)}
                                 </span>
                               </div>
                             </div>
@@ -2990,7 +2998,7 @@ const DockRentalPlatform = () => {
                   </div>
                   <div className="bg-purple-50 p-4 rounded-lg">
                     <h4 className="font-semibold text-purple-800">Total Revenue</h4>
-                    <p className="text-2xl font-bold text-purple-600">${calculateRevenue().toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-purple-600">${(calculateRevenue() || 0).toFixed(2)}</p>
                   </div>
                 </div>
 
@@ -3125,11 +3133,11 @@ const DockRentalPlatform = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="bg-green-50 p-4 rounded-lg">
                     <h4 className="font-semibold text-green-800">Total Revenue</h4>
-                    <p className="text-2xl font-bold text-green-600">${calculateRevenue().toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-green-600">${(calculateRevenue() || 0).toFixed(2)}</p>
                   </div>
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <h4 className="font-semibold text-blue-800">This Month</h4>
-                    <p className="text-2xl font-bold text-blue-600">${getMonthlyRevenue().toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-blue-600">${(getMonthlyRevenue() || 0).toFixed(2)}</p>
                   </div>
                   <div className="bg-purple-50 p-4 rounded-lg">
                     <h4 className="font-semibold text-purple-800">Total Bookings</h4>
@@ -3155,7 +3163,7 @@ const DockRentalPlatform = () => {
                       return (
                         <div key={slip.id} className="flex justify-between items-center py-2 border-b">
                           <span className="font-medium">{slip.name}</span>
-                          <span className="text-green-600">${slipRevenue.toFixed(2)}</span>
+                          <span className="text-green-600">${(slipRevenue || 0).toFixed(2)}</span>
                         </div>
                       );
                     })}

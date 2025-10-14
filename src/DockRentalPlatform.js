@@ -12,6 +12,10 @@ const stripePromise = loadStripe(
   process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_live_51Rp9wh2zul6IUZC2Bi1RPfczb4RfYtTVcjp764dVLKx4XHoWbbegWCTTmJ9wPJ6DjNQzBxwbITzXeTcocCi9RNO500X6Z9yZER'
 );
 
+// Add this line right after:
+console.log('Stripe Key:', process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+console.log('Stripe Promise:', stripePromise);
+
 // Payment Component that can use Stripe hooks
 const PaymentComponent = ({ onPaymentComplete, bookingData, totalCost, selectedSlip }) => {
   const stripe = useStripe();
@@ -1006,15 +1010,42 @@ const DockRentalPlatform = () => {
     return true;
   });
 
-  const SlipCard = ({ slip }) => (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-      {slip.image_url && (
-        <img 
-          src={`${slip.image_url}?t=${Date.now()}`} 
-          alt={slip.name}
-          className="w-full h-48 object-cover"
-        />
-      )}
+  const SlipCard = ({ slip }) => {
+    // Helper function to get the first image from the images array
+    const getFirstImage = (slip) => {
+      console.log('DEBUG SlipCard - slip data:', slip);
+      console.log('DEBUG SlipCard - slip.images:', slip.images);
+      console.log('DEBUG SlipCard - slip.image_url:', slip.image_url);
+      
+      // Check if images is an array with content
+      if (slip.images && Array.isArray(slip.images) && slip.images.length > 0) {
+        console.log('DEBUG SlipCard - using images array, first image:', slip.images[0]);
+        return slip.images[0];
+      }
+      
+      // Check if images is a string (direct base64 data)
+      if (slip.images && typeof slip.images === 'string' && slip.images.startsWith('data:image/')) {
+        console.log('DEBUG SlipCard - using images string directly:', slip.images);
+        return slip.images;
+      }
+      
+      // Fallback to image_url for backward compatibility
+      console.log('DEBUG SlipCard - using image_url fallback:', slip.image_url);
+      return slip.image_url;
+    };
+
+    const imageSrc = getFirstImage(slip);
+    console.log('DEBUG SlipCard - final imageSrc:', imageSrc);
+    
+    return (
+      <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+        {imageSrc && (
+          <img 
+            src={imageSrc} 
+            alt={slip.name}
+            className="w-full h-48 object-cover"
+          />
+        )}
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
           <h3 className="text-lg font-semibold">{slip.name}</h3>
@@ -1056,6 +1087,7 @@ const DockRentalPlatform = () => {
       </div>
     </div>
   );
+  };
 
   // User authentication functions
   // FIXED DOCK82 AUTHENTICATION FLOW
@@ -2162,7 +2194,50 @@ const DockRentalPlatform = () => {
         if (slipsError) {
           console.error('Error loading slips from Supabase:', slipsError);
         } else {
-          setSlips(slipsData || []);
+          // Transform the data to match frontend expectations
+          const transformedSlips = (slipsData || []).map(slip => {
+            // Handle images - could be array, JSON string, or direct base64 string
+            let images = slip.images || [];
+            
+            if (typeof images === 'string') {
+              // Check if it's a JSON array string (starts with '[')
+              if (images.startsWith('[')) {
+                try {
+                  images = JSON.parse(images);
+                } catch (e) {
+                  console.error('Error parsing images JSON array:', e);
+                  images = [];
+                }
+              } else if (images.startsWith('data:image/')) {
+                // It's a direct base64 string, wrap it in an array
+                images = [images];
+              } else {
+                // Unknown string format, treat as empty
+                images = [];
+              }
+            }
+            
+            return {
+              id: slip.id,
+              name: slip.name,
+              max_length: parseFloat(slip.max_length),
+              width: parseFloat(slip.width),
+              depth: parseFloat(slip.depth),
+              price_per_night: parseFloat(slip.price_per_night),
+              amenities: slip.amenities || [],
+              description: slip.description,
+              dock_etiquette: slip.dock_etiquette,
+              available: slip.available,
+              images: images,
+              // Debug logging
+              _debug_images: slip.images,
+              _debug_images_parsed: images
+            };
+          });
+          
+          console.log('DEBUG: Loaded slips data:', transformedSlips);
+          console.log('DEBUG: First slip images:', transformedSlips[0]?.images);
+          setSlips(transformedSlips);
         }
 
         // Load bookings from Supabase
@@ -2577,28 +2652,7 @@ const DockRentalPlatform = () => {
                   <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Credit Card Details</label>
                     <div className="border border-gray-300 rounded-md p-3 bg-white">
-                      {!stripe || !elements ? (
-                        <div className="text-red-600 text-sm">
-                          Stripe Elements failed to load. Payment will not work.
-                        </div>
-                      ) : (
-                        <CardElement
-                          options={{
-                            style: {
-                              base: {
-                                fontSize: '16px',
-                                color: '#424770',
-                                '::placeholder': {
-                                  color: '#aab7c4',
-                                },
-                              },
-                              invalid: {
-                                color: '#9e2146',
-                              },
-                            },
-                          }}
-                        />
-                      )}
+                      
                     </div>
                   </div>
 
@@ -3327,17 +3381,26 @@ const DockRentalPlatform = () => {
                       )}
 
                       {/* Image Display */}
-                      {slip.images && (
-                        <div className="mt-3">
-                          <div className="mb-2">
-                            <img 
-                              src={`${slip.images}?t=${Date.now()}`} 
-                              alt={slip.name}
-                              className="w-full h-24 object-cover rounded border"
-                            />
+                      {(() => {
+                        let imageSrc = null;
+                        if (slip.images && Array.isArray(slip.images) && slip.images.length > 0) {
+                          imageSrc = slip.images[0];
+                        } else if (slip.images && typeof slip.images === 'string' && slip.images.startsWith('data:image/')) {
+                          imageSrc = slip.images;
+                        }
+                        
+                        return imageSrc ? (
+                          <div className="mt-3">
+                            <div className="mb-2">
+                              <img 
+                                src={imageSrc} 
+                                alt={slip.name}
+                                className="w-full h-24 object-cover rounded border"
+                              />
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        ) : null;
+                      })()}
                     </div>
                   ))}
                 </div>
@@ -4375,6 +4438,8 @@ const DockRentalPlatformWrapper = () => {
   );
 };
 
-export default DockRentalPlatformWrapper;// Force deployment Thu Sep 18 15:33:21 EDT 2025
+export default DockRentalPlatformWrapper;
+
+// Force deployment Thu Sep 18 15:33:21 EDT 2025
 // Force new deployment 1758224165
 // Deployment fix Fri Sep 19 17:48:08 EDT 2025

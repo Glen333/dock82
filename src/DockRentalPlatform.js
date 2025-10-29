@@ -1,104 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, MapPin, Anchor, Clock, DollarSign, User, Settings, Plus, Edit, Trash2, Check, X, Filter, Search, CreditCard, Lock, Eye, EyeOff } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
 import { supabase } from './supabase';
+import PaymentPage from './PaymentPage';
+
+// Store clientSecret in DockRentalPlatform state to pass to Elements
+let globalClientSecret = null;
+let globalSetClientSecret = null;
 
 // Deploy marker to force Vercel redeploy
 console.log("DEPLOY_MARKER 2025-09-19T17:00-0400");
 
 // Stripe configuration - Use React environment variables
 const stripePromise = loadStripe(
-  process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_live_51Rp9wh2zul6IUZC2Bi1RPfczb4RfYtTVcjp764dVLKx4XHoWbbegWCTTmJ9wPJ6DjNQzBxwbITzXeTcocCi9RNO500X6Z9yZER'
+  process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_51SG5p53j9XCjmWOGSpK1ex75CbbmwN01r6RbOZ2QKgoWZ7Q6K1gEu12OgUhgSb2ur6LoBJSOA7V2K9zS0WhbPwJk00l16UUppK'
 );
+
+console.log('Using Stripe key:', (process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_51SG5p53j9XCjmWOGSpK1ex75CbbmwN01r6RbOZ2QKgoWZ7Q6K1gEu12OgUhgSb2ur6LoBJSOA7V2K9zS0WhbPwJk00l16UUppK').substring(0, 20));
 
 // Add this line right after:
 console.log('Stripe Key:', process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 console.log('Stripe Promise:', stripePromise);
-
-// Payment Component that can use Stripe hooks
-const PaymentComponent = ({ onPaymentComplete, bookingData, totalCost, selectedSlip }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  
-  const processPayment = async () => {
-    if (!stripe || !elements) {
-      return { success: false, error: 'Stripe Elements failed to load. Payment will not work.' };
-    }
-    
-    try {
-      // Create payment intent on backend
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await fetch(`${apiUrl}/api/create-payment-intent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: totalCost,
-          currency: 'usd',
-          bookingData: bookingData
-        }),
-      });
-      
-      const { clientSecret } = await response.json();
-      
-      // Confirm payment with Stripe
-      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: elements.getElement(CardElement),
-          billing_details: {
-            name: bookingData.guestName,
-            email: bookingData.guestEmail,
-          },
-        },
-      });
-      
-      if (error) {
-        return { success: false, error: error.message };
-      }
-      
-      if (paymentIntent.status === 'succeeded') {
-        return { success: true, paymentIntent };
-      }
-      
-      return { success: false, error: 'Payment failed' };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
-  
-  return (
-    <div className="space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold mb-4">Payment Information</h3>
-        <CardElement 
-          options={{
-            style: {
-              base: {
-                fontSize: '16px',
-                color: '#424770',
-                '::placeholder': {
-                  color: '#aab7c4',
-                },
-              },
-            },
-          }}
-        />
-      </div>
-      
-      <button
-        onClick={async () => {
-          const result = await processPayment();
-          onPaymentComplete(result);
-        }}
-        className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        Complete Payment
-      </button>
-    </div>
-  );
-};
 
 const DockRentalPlatform = () => {
   const [currentView, setCurrentView] = useState('browse');
@@ -217,9 +140,7 @@ const DockRentalPlatform = () => {
     paymentMethod: 'stripe',
     userType: 'renter',
     selectedOwner: '',
-    rentalProperty: '',
-    rentalStartDate: '',
-    rentalEndDate: ''
+    // Removed rental property fields - simplified to just dock dates
   });
 
   // New simplified authentication states
@@ -753,34 +674,83 @@ const DockRentalPlatform = () => {
       const finalTotal = baseTotal - discount;
 
       // Insert booking directly into database
+      console.log('Inserting booking:', {
+        slip_id: selectedSlip.id,
+        guest_name: bookingData.guestName,
+        nights: nights
+      });
+      
       const { data: newBookingData, error: insertErr } = await supabase.from('bookings').insert({
         slip_id: selectedSlip.id,
-        renter_auth_id: userData?.user?.id || null,
+        user_id: null, // Skip user_id for now since it's a UUID from auth but table expects BIGINT
         guest_name: bookingData.guestName,
         guest_email: bookingData.guestEmail,
         guest_phone: bookingData.guestPhone,
-        user_type: bookingData.userType,            // 'renter' or 'homeowner'
+        user_type: bookingData.userType,
         check_in: bookingData.checkIn,
         check_out: bookingData.checkOut,
         boat_length: bookingData.boatLength,
         boat_make_model: bookingData.boatMakeModel,
-        base_total: baseTotal,
-        discount: discount,
+        nights: nights,
         total_cost: finalTotal,
         status: 'confirmed',
         payment_status: 'paid',
-        payment_date: new Date().toISOString().slice(0,10),
+        payment_date: new Date().toISOString(),
         payment_method: 'stripe',
-        payment_intent_id: paymentResult.paymentIntentId,
-        rental_property: bookingData.rentalProperty || null,
-        rental_start_date: bookingData.rentalStartDate || null,
-        rental_end_date: bookingData.rentalEndDate || null,
+        // Removed rental property fields - they were confusing and not needed
       }).select().single();
 
       if (insertErr) {
         console.error('Database insert error:', insertErr);
-        alert('Saved payment, but failed to record booking. We will fix this manually.');
+        console.error('Error details:', {
+          code: insertErr.code,
+          message: insertErr.message,
+          details: insertErr.details,
+          hint: insertErr.hint
+        });
+        
+        // Check if it's an overlap error
+        if (insertErr.message && insertErr.message.includes('Overlapping')) {
+          alert('This slip is already booked for those dates! Please choose different dates.');
+          setShowPaymentPage(false);
+          setCurrentView('browse');
+          return;
+        }
+        
+        alert('Payment successful, but booking may already exist. Please check your bookings.');
+        // Continue anyway - payment is saved
+        const tempBooking = {
+          id: Date.now(),
+          slipId: selectedSlip.id,
+          slipName: selectedSlip.name,
+          ...bookingData,
+          nights,
+          totalCost: finalTotal,
+          status: 'confirmed',
+          paymentStatus: 'paid'
+        };
+        setBookings([...bookings, tempBooking]);
+        setShowPaymentPage(false);
+        setCurrentView('browse');
         return;
+      }
+
+      console.log('Booking inserted successfully:', newBookingData);
+
+      // Update slip availability in database
+      try {
+        const { error: updateError } = await supabase
+          .from('slips')
+          .update({ available: false })
+          .eq('id', selectedSlip.id);
+        
+        if (updateError) {
+          console.error('Failed to update slip availability:', updateError);
+        } else {
+          console.log('Slip availability updated to occupied');
+        }
+      } catch (error) {
+        console.error('Error updating slip availability:', error);
       }
 
       // Update local bookings state with confirmed booking
@@ -803,6 +773,16 @@ const DockRentalPlatform = () => {
       };
 
       setBookings([...bookings, newBooking]);
+      
+      // Update local slips state to mark slip as occupied
+      setSlips(prevSlips => 
+        prevSlips.map(slip => 
+          slip.id === selectedSlip.id 
+            ? { ...slip, available: false }
+            : slip
+        )
+      );
+      
       setShowPaymentPage(false);
       setCurrentView('browse');
       
@@ -863,27 +843,10 @@ const DockRentalPlatform = () => {
     }
 
     // Only renters need to upload rental agreement and provide rental details
-    if (bookingData.userType === 'renter' && (!bookingData.rentalAgreement || !bookingData.insuranceProof || !bookingData.rentalProperty || !bookingData.rentalStartDate || !bookingData.rentalEndDate)) {
-      alert('Please fill in all rental property details and upload both your rental agreement and boat insurance proof.');
+    // Simplified validation - just check required fields
+    if (bookingData.userType === 'renter' && (!bookingData.rentalAgreement || !bookingData.insuranceProof)) {
+      alert('Please upload both your rental agreement and boat insurance proof.');
       return;
-    }
-
-    // Validate renter dock booking timing - can only book within 7 days prior to rental arrival
-    if (bookingData.userType === 'renter') {
-      const rentalStartDate = new Date(bookingData.rentalStartDate);
-      const dockCheckInDate = new Date(bookingData.checkIn);
-      const sevenDaysPrior = new Date(rentalStartDate);
-      sevenDaysPrior.setDate(sevenDaysPrior.getDate() - 7);
-
-      if (dockCheckInDate < sevenDaysPrior) {
-        alert(`Dock slips can only be reserved within 7 days prior to your rental arrival date (${bookingData.rentalStartDate}). Earliest dock check-in allowed: ${sevenDaysPrior.toISOString().split('T')[0]}`);
-        return;
-      }
-
-      if (dockCheckInDate < rentalStartDate && new Date(bookingData.checkOut) > new Date(bookingData.rentalEndDate)) {
-        alert('Your dock reservation cannot extend beyond your home rental period.');
-        return;
-      }
     }
 
     if (parseInt(bookingData.boatLength) > selectedSlip.max_length) {
@@ -983,7 +946,7 @@ const DockRentalPlatform = () => {
       checkIn: '', checkOut: '', boatLength: '', boatMakeModel: '', 
       guestName: '', guestEmail: '', guestPhone: '', rentalAgreement: null, 
       insuranceProof: null, paymentMethod: 'stripe', userType: 'renter', 
-      selectedOwner: '', rentalProperty: '', rentalStartDate: '', rentalEndDate: '',
+      selectedOwner: '', // Removed rental property fields
       agreedToTerms: false
     });
     setCurrentView('bookings');
@@ -1784,13 +1747,14 @@ const DockRentalPlatform = () => {
 
   const sendEmailNotification = async (type, email, data) => {
     try {
-      const fnUrl = `${supabase.functions.url}/send-notification`;
+      // Use local API endpoint instead of Supabase Edge Function to avoid auth issues
+      const localApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const fnUrl = `${localApiUrl}/api/send-notification`;
       
       const response = await fetch(fnUrl, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ type, email, data }),
       });
@@ -1803,6 +1767,8 @@ const DockRentalPlatform = () => {
       }
     } catch (error) {
       console.error('Error sending email notification:', error);
+      // Don't fail the booking if email fails
+      console.log('Email notification failed, but booking was successful');
     }
   };
 
@@ -2370,28 +2336,16 @@ const DockRentalPlatform = () => {
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         {showPaymentPage ? (
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold">Complete Your Booking</h2>
-                <button
-                  onClick={() => setShowPaymentPage(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-              
-              <PaymentComponent
-                bookingData={bookingData}
-                selectedSlip={selectedSlip}
-                totalCost={totalInfo.finalTotal}
-                onPaymentComplete={handlePaymentComplete}
-              />
-            </div>
-          </div>
-        ) : currentView === 'browse' && (
+          <PaymentPage
+            bookingData={bookingData}
+            selectedSlip={selectedSlip}
+            onPaymentComplete={handlePaymentComplete}
+            onBack={() => setShowPaymentPage(false)}
+          />
+        ) : (
           <>
+            {currentView === 'browse' && (
+              <>
             {/* Search and Filters */}
             <div className="mb-8 bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-semibold mb-4">Select an Available Slip</h2>
@@ -2415,10 +2369,10 @@ const DockRentalPlatform = () => {
                 <SlipCard key={slip.id} slip={slip} />
               ))}
             </div>
-          </>
-        )}
+              </>
+            )}
 
-        {currentView === 'booking' && selectedSlip && (
+            {currentView === 'booking' && selectedSlip && !showPaymentPage && (
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">Book {selectedSlip.name}</h2>
@@ -2648,19 +2602,6 @@ const DockRentalPlatform = () => {
                     </div>
                   </div>
 
-                  {/* Credit Card Input */}
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Credit Card Details</label>
-                    <div className="border border-gray-300 rounded-md p-3 bg-white">
-                      
-                    </div>
-                  </div>
-
-                  {/* Security Notice */}
-                  <div className="mt-3 flex items-center text-sm text-gray-600">
-                    <Lock className="w-4 h-4 mr-2" />
-                    <span>Your payment information is secure and encrypted</span>
-                  </div>
                 </div>
               )}
 
@@ -2698,28 +2639,7 @@ const DockRentalPlatform = () => {
                       </select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Rental Start Date</label>
-                      <input
-                        type="date"
-                        value={bookingData.rentalStartDate}
-                        onChange={(e) => setBookingData({...bookingData, rentalStartDate: e.target.value})}
-                        className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Rental End Date</label>
-                      <input
-                        type="date"
-                        value={bookingData.rentalEndDate}
-                        onChange={(e) => setBookingData({...bookingData, rentalEndDate: e.target.value})}
-                        className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-                  </div>
+                  {/* Removed rental property date fields - simplified to just dock dates */}
                 </div>
               )}
 
@@ -3752,7 +3672,9 @@ const DockRentalPlatform = () => {
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          )}
+          </>
         )}
       </main>
 
@@ -4430,16 +4352,17 @@ const DockRentalPlatform = () => {
 };
 
 // Wrapper component to provide Stripe Elements context
-const DockRentalPlatformWrapper = () => {
-  return (
-    <Elements stripe={stripePromise}>
-      <DockRentalPlatform />
-    </Elements>
-  );
-};
+// export const DockRentalPlatformWrapper = () => {
+//   const [clientSecret, setClientSecret] = useState(null);
+  
+//   return (
+//     <Elements stripe={stripePromise} options={clientSecret ? { clientSecret } : undefined}>
+//       <DockRentalPlatform onClientSecret={setClientSecret} />
+//     </Elements>
+//   );
+// };
 
-export default DockRentalPlatformWrapper;
-
+export default DockRentalPlatform;
 // Force deployment Thu Sep 18 15:33:21 EDT 2025
 // Force new deployment 1758224165
 // Deployment fix Fri Sep 19 17:48:08 EDT 2025

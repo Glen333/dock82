@@ -1,0 +1,125 @@
+═══════════════════════════════════════════════════════════════
+  🔧 COMPLETE DEPENDENCY FIX - STEP BY STEP
+═══════════════════════════════════════════════════════════════
+
+PROBLEM: ajv module missing + webpack-dev-server conflicts
+
+═══════════════════════════════════════════════════════════════
+  AUTOMATED FIX (RECOMMENDED)
+═══════════════════════════════════════════════════════════════
+
+bash COMPLETE_FIX.sh
+
+This will fix everything automatically!
+
+═══════════════════════════════════════════════════════════════
+  MANUAL FIX (If automated script fails)
+═══════════════════════════════════════════════════════════════
+
+Step 1: Load NVM and use Node 18
+─────────────────────────────────
+source ~/.zshrc
+nvm use 18
+
+Step 2: Complete cleanup
+─────────────────────────
+rm -rf node_modules package-lock.json
+
+Step 3: Use npm 8 (more compatible)
+────────────────────────────────────
+npm install -g npm@8
+
+Step 4: Install dependencies with --force
+──────────────────────────────────────────
+npm install --force
+
+Step 5: Fix ajv module specifically
+────────────────────────────────────
+npm install ajv@8.12.0 --save-dev --force
+
+Step 6: Start the app
+─────────────────────
+npm start
+
+═══════════════════════════════════════════════════════════════
+  ALTERNATIVE: USE OLDER react-scripts
+═══════════════════════════════════════════════════════════════
+
+If above doesn't work, downgrade react-scripts:
+
+# Backup package.json first
+cp package.json package.json.backup
+
+# Modify package.json - change react-scripts version
+# From: "react-scripts": "^5.0.1"
+# To:   "react-scripts": "4.0.3"
+
+# Then:
+rm -rf node_modules package-lock.json
+npm install
+npm start
+
+═══════════════════════════════════════════════════════════════
+  NUCLEAR OPTION: Fresh Install
+═══════════════════════════════════════════════════════════════
+
+If nothing else works:
+
+# Delete everything
+rm -rf node_modules package-lock.json
+
+# Clear npm cache
+npm cache clean --force
+
+# Install with Node 18 and npm 8
+nvm use 18
+npm install -g npm@8
+npm install --force
+
+# Try starting
+SKIP_PREFLIGHT_CHECK=true npm start
+
+═══════════════════════════════════════════════════════════════
+  ENVIRONMENT VARIABLES TO TRY
+═══════════════════════════════════════════════════════════════
+
+Add to .env.local:
+
+SKIP_PREFLIGHT_CHECK=true
+GENERATE_SOURCEMAP=false
+NODE_OPTIONS=--max-old-space-size=4096
+
+═══════════════════════════════════════════════════════════════
+  WHAT EACH FIX DOES:
+═══════════════════════════════════════════════════════════════
+
+Node 18:        Compatible with most packages
+npm 8:          More stable for react-scripts 5.0.1
+--force:        Ignores dependency conflicts
+ajv@8.12.0:     Fixes "Cannot find module" error
+SKIP_PREFLIGHT: Bypasses React version checks
+
+═══════════════════════════════════════════════════════════════
+  TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════
+
+Error: "Cannot find module ajv/dist/compile/codegen"
+Fix: npm install ajv@8.12.0 --save-dev --force
+
+Error: "Invalid options object"
+Fix: Use Node 18 + npm 8
+
+Error: "Module not found"
+Fix: Delete node_modules and reinstall with --force
+
+═══════════════════════════════════════════════════════════════
+  RECOMMENDED: START WITH AUTOMATED FIX
+═══════════════════════════════════════════════════════════════
+
+bash COMPLETE_FIX.sh
+
+This handles all the steps automatically!
+
+═══════════════════════════════════════════════════════════════
+
+

@@ -7,8 +7,6 @@ const stripePromise = loadStripe(
   process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_51SG5p53j9XCjmWOGSpK1ex75CbbmwN01r6RbOZ2QKgoWZ7Q6K1gEu12OgUhgSb2ur6LoBJSOA7V2K9zS0WhbPwJk00l16UUppK'
 );
 
-console.log('PaymentPage using Stripe key:', (process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_51SG5p53j9XCjmWOGSpK1ex75CbbmwN01r6RbOZ2QKgoWZ7Q6K1gEu12OgUhgSb2ur6LoBJSOA7V2K9zS0WhbPwJk00l16UUppK').substring(0, 20));
-
 // Inner component that uses Stripe hooks
 const PaymentFormContent = ({ bookingData, onPaymentComplete }) => {
   const stripe = useStripe();
@@ -97,54 +95,44 @@ const PaymentPage = ({ bookingData, selectedSlip, onPaymentComplete, onBack }) =
     return days === 30 ? baseTotal * 0.6 : baseTotal;
   };
 
-   useEffect(() => {
-     const createPaymentIntent = async () => {
-       try {
-         const totalAmount = calculateTotal();
-         console.log('Creating payment intent for amount:', totalAmount);
-         const localApiUrl = process.env.REACT_APP_API_URL;
-         const fnUrl = `${localApiUrl || supabase.functions.url}/api/create-payment-intent`;
+  useEffect(() => {
+    const createPaymentIntent = async () => {
+      try {
+        const totalAmount = calculateTotal();
+        const localApiUrl = process.env.REACT_APP_API_URL;
+        const fnUrl = `${localApiUrl || supabase.functions.url}/api/create-payment-intent`;
 
-         const resp = await fetch(fnUrl, {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({
-             amount: totalAmount,
-             currency: 'usd',
-             booking: {
-               slip_id: selectedSlip?.id,
-               slip_name: selectedSlip?.name,
-               guest_email: bookingData.guestEmail,
-               guest_name: bookingData.guestName,
-               guest_phone: bookingData.guestPhone,
-               check_in: bookingData.checkIn,
-               check_out: bookingData.checkOut,
-               boat_length: bookingData.boatLength,
-               boat_make_model: bookingData.boatMakeModel,
-               user_type: bookingData.userType,
-             }
-           })
-         });
+        const resp = await fetch(fnUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: totalAmount,
+            currency: 'usd',
+            booking: {
+              slip_id: selectedSlip?.id,
+              slip_name: selectedSlip?.name,
+              guest_email: bookingData.guestEmail,
+              guest_name: bookingData.guestName,
+              guest_phone: bookingData.guestPhone,
+              check_in: bookingData.checkIn,
+              check_out: bookingData.checkOut,
+              boat_length: bookingData.boatLength,
+              boat_make_model: bookingData.boatMakeModel,
+              user_type: bookingData.userType,
+            }
+          })
+        });
 
-         console.log('Payment intent response status:', resp.status);
-         if (!resp.ok) {
-           const errorText = await resp.text();
-           console.error('Payment intent error:', errorText);
-           throw new Error('Failed to create payment intent');
-         }
-         const result = await resp.json();
-         console.log('Payment intent result:', result);
-         const { clientSecret } = result;
-         console.log('Setting clientSecret:', clientSecret);
-         setClientSecret(clientSecret);
-       } catch (error) {
-         console.error('Payment intent creation error:', error);
-         setPaymentError(error.message);
-       }
-     };
+        if (!resp.ok) throw new Error('Failed to create payment intent');
+        const { clientSecret } = await resp.json();
+        setClientSecret(clientSecret);
+      } catch (error) {
+        setPaymentError(error.message);
+      }
+    };
 
-     createPaymentIntent();
-   }, []);
+    createPaymentIntent();
+  }, []);
 
   if (!clientSecret) {
     return (
@@ -188,9 +176,9 @@ const PaymentPage = ({ bookingData, selectedSlip, onPaymentComplete, onBack }) =
           </div>
         </div>
 
-         <Elements key={clientSecret} stripe={stripePromise} options={{ clientSecret }}>
-           <PaymentFormContent bookingData={bookingData} onPaymentComplete={onPaymentComplete} />
-         </Elements>
+        <Elements stripe={stripePromise} options={{ clientSecret }}>
+          <PaymentFormContent bookingData={bookingData} onPaymentComplete={onPaymentComplete} />
+        </Elements>
       </div>
     </div>
   );

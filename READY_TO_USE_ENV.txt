@@ -1,0 +1,34 @@
+# ============================================
+# Ready-to-Use Local Development Configuration
+# ============================================
+# Copy these values to your .env.local file
+
+# Supabase (Already Configured)
+REACT_APP_SUPABASE_URL=https://phstdzlniugqbxtfgktb.supabase.co
+REACT_APP_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBoc3RkemxuaXVncWJ4dGZna3RiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5NTM0MzUsImV4cCI6MjA3MDUyOTQzNX0.u5A8Loh-pk9FCU68Rs1SWE8qBkxx5LXMhK-eM_EtNwM
+
+# Stripe Publishable Key (LIVE - but works with test cards)
+REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_live_51Rp9wh2zul6IUZC2Bi1RPfczb4RfYtTVcjp764dVLKx4XHoWbbegWCTTmJ9wPJ6DjNQzBxwbITzXeTcocCi9RNO500X6Z9yZER
+
+# Stripe Secret Key (You need to get this from repo owner)
+STRIPE_SECRET_KEY=sk_live_YOUR_SECRET_KEY_HERE
+
+# API URL
+REACT_APP_API_URL=http://localhost:3000
+
+# ============================================
+# HOW TO USE:
+# ============================================
+# 1. Create .env.local file
+# 2. Copy all these values into it
+# 3. Replace STRIPE_SECRET_KEY with actual value
+# 4. Save and run: npm start
+
+# ============================================
+# STRIPE TEST CARDS (Even with Live Keys):
+# ============================================
+# Card: 4242 4242 4242 4242
+# Expiry: 12/34 (any future date)
+# CVC: 123 (any 3 digits)
+# ZIP: 12345 (any 5 digits)
+

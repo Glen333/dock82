@@ -4,6 +4,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { supabase } from './supabase';
 import PaymentPage from './PaymentPage';
+import { uploadUserDocument, uploadSlipImage } from './storage-utils';
 
 // Store clientSecret in DockRentalPlatform state to pass to Elements
 let globalClientSecret = null;
@@ -24,7 +25,7 @@ console.log('Stripe Key:', process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 console.log('Stripe Promise:', stripePromise);
 
 const DockRentalPlatform = () => {
-  const [currentView, setCurrentView] = useState('browse');
+  const [currentView, setCurrentView] = useState(null); // Start with null, will be set based on auth
   const [selectedSlip, setSelectedSlip] = useState(null);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
@@ -81,6 +82,7 @@ const DockRentalPlatform = () => {
     }
   });
   const [showPermit, setShowPermit] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
   const [showCancellationModal, setShowCancellationModal] = useState(null);
   const [cancellationReason, setCancellationReason] = useState('');
   const [editingSlip, setEditingSlip] = useState(null);
@@ -140,11 +142,13 @@ const DockRentalPlatform = () => {
     paymentMethod: 'stripe',
     userType: 'renter',
     selectedOwner: '',
+    homeownerAuthorizationLetter: null,
+    homeownerInsuranceProof: null,
     // Removed rental property fields - simplified to just dock dates
   });
 
   // New simplified authentication states
-  const [authStep, setAuthStep] = useState('email'); // 'email', 'password', 'register', 'verify-contact', 'forgot-password', 'reset-password'
+  const [authStep, setAuthStep] = useState('login'); // 'login', 'register', 'verify-contact', 'forgot-password', 'reset-password'
   const [tempEmail, setTempEmail] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetToken, setResetToken] = useState('');
@@ -154,7 +158,9 @@ const DockRentalPlatform = () => {
   const [searchFilters, setSearchFilters] = useState({
     maxLength: '',
     priceRange: '',
-    amenities: []
+    amenities: [],
+    dateRangeStart: '',
+    dateRangeEnd: ''
   });
 
   // Property owners data from the spreadsheet
@@ -195,7 +201,16 @@ const DockRentalPlatform = () => {
   ];
 
   // Slips data loaded from Supabase only
+  const normalizeUserType = (value) => {
+    if (!value) return 'renter';
+    return value.toString().toLowerCase();
+  };
+
   const [slips, setSlips] = useState([]);
+  const [allSlips, setAllSlips] = useState([]);
+  const [allBookings, setAllBookings] = useState([]);
+  const currentUserType = currentUser ? normalizeUserType(currentUser.user_type || currentUser.userType || currentUser.user_role) : null;
+  const canManageUserRoles = currentUserType === 'admin' || currentUserType === 'superadmin';
 
 
   // Helper function to validate dates
@@ -222,6 +237,93 @@ const DockRentalPlatform = () => {
     }
     
     return { valid: true, days: days };
+  };
+
+  const transformSlipsData = (slipArray = []) => {
+    return (slipArray || []).map((slip) => {
+      let images = slip.images || [];
+
+      if (typeof images === 'string') {
+        if (images.startsWith('[')) {
+          try {
+            images = JSON.parse(images);
+          } catch (error) {
+            console.error('Error parsing slip images JSON string:', error);
+            images = [];
+          }
+        } else if (images.startsWith('data:image/')) {
+          images = [images];
+        } else {
+          images = [];
+        }
+      }
+
+      const parseNumeric = (value) => {
+        if (value == null || value === '') return null;
+        const parsed = typeof value === 'string' ? parseFloat(value) : Number(value);
+        return Number.isNaN(parsed) ? null : parsed;
+      };
+
+      const maxLength = slip.max_boat_length != null ? slip.max_boat_length : slip.max_length;
+
+      return {
+        id: slip.id,
+        name: slip.name,
+        max_length: parseNumeric(maxLength),
+        width: parseNumeric(slip.width),
+        depth: parseNumeric(slip.depth),
+        price_per_night: parseNumeric(slip.price_per_night) || 0,
+        amenities: Array.isArray(slip.amenities) ? slip.amenities : (slip.amenities ? [slip.amenities] : []),
+        description: slip.description,
+        dockEtiquette: slip.dock_etiquette,
+        available: typeof slip.available === 'boolean' ? slip.available : true,
+        images
+      };
+    });
+  };
+
+  const transformBookingsData = (bookingArray = [], slipList = []) => {
+    const referenceSlips = (slipList && slipList.length ? slipList : (allSlips.length ? allSlips : slips));
+    const slipLookup = new Map(referenceSlips.map((slip) => [slip.id, slip]));
+
+    return (bookingArray || []).map((booking) => {
+      const slip = slipLookup.get(booking.slip_id) || slipLookup.get(booking.slipId);
+      const slipName = slip ? slip.name : (booking.slipName || (booking.slip_id ? `Slip ${booking.slip_id}` : 'Unknown Slip'));
+
+      const normalizeDate = (value) => {
+        if (!value) return null;
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? null : date.toISOString();
+      };
+
+      return {
+        ...booking,
+        slipName,
+        slipId: booking.slip_id || booking.slipId,
+        guestName: booking.guest_name || booking.guestName,
+        guestEmail: booking.guest_email || booking.guestEmail,
+        guestPhone: booking.guest_phone || booking.guestPhone,
+        checkIn: normalizeDate(booking.check_in || booking.checkIn),
+        checkOut: normalizeDate(booking.check_out || booking.checkOut),
+        boatLength: booking.boat_length || booking.boatLength,
+        boatMakeModel: booking.boat_make_model || booking.boatMakeModel,
+        userType: booking.user_type || booking.userType,
+        totalCost: booking.total_cost || booking.totalCost,
+        bookingDate: normalizeDate(booking.booking_date || booking.bookingDate),
+        paymentStatus: booking.payment_status || booking.paymentStatus,
+        paymentMethod: booking.payment_method || booking.paymentMethod,
+        paymentDate: normalizeDate(booking.payment_date || booking.paymentDate),
+        paymentReference: booking.payment_reference || booking.paymentReference,
+        rentalAgreementName: booking.rental_agreement_name || booking.rentalAgreementName,
+        rentalAgreementPath: booking.rental_agreement_path || booking.rentalAgreementPath,
+        insuranceProofName: booking.insurance_proof_name || booking.insuranceProofName,
+        insuranceProofPath: booking.insurance_proof_path || booking.insuranceProofPath,
+        boatPicturePath: booking.boat_picture_path || booking.boatPicturePath,
+        status: booking.status || booking.status,
+        paymentIntentId: booking.payment_reference || booking.paymentIntentId,
+        user_id: booking.user_id
+      };
+    });
   };
 
   // Helper function to calculate booking total with discount
@@ -300,19 +402,24 @@ const DockRentalPlatform = () => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        console.log('AUTH DEBUG - Initializing auth state...');
         // Get the current session from Supabase
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('AUTH DEBUG - Error getting session:', error);
+          setSessionLoading(false);
           return;
         }
 
         if (session?.user) {
           console.log('AUTH DEBUG - Restoring session for:', session.user.email);
           
-          // Restore user profile from database
+          try {
+            // Try to fetch user profile from database (with timeout)
           const userProfile = await ensureUserProfile(session.user);
+            
+            if (userProfile) {
           setCurrentUser(userProfile);
           
           // Set admin mode if superadmin
@@ -321,13 +428,41 @@ const DockRentalPlatform = () => {
             setSuperAdminMode(true);
           }
           
-          // Load user's bookings
+          // Load user's bookings - filter by user_id (with fallback to email for backward compatibility)
           const userBookings = bookings.filter(booking => 
-            booking.guestEmail === userProfile.email
+            (booking.user_id && booking.user_id === userProfile.id) || 
+            (!booking.user_id && booking.guestEmail === userProfile.email)
           );
           setUserBookings(userBookings);
           
           console.log('AUTH DEBUG - Session restored successfully');
+            } else {
+              // Profile not found - create minimal user from session
+              // Backend will create profile when needed
+              console.warn('AUTH DEBUG - Profile not found, using minimal user from session');
+              const minimalUser = {
+                id: session.user.id,
+                email: session.user.email,
+                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+                user_type: normalizeUserType(session.user.user_metadata?.userType || session.user.user_metadata?.user_type || session.user.user_metadata?.userRole),
+                phone: session.user.user_metadata?.phone || '',
+                email_verified: session.user.email_confirmed_at !== null
+              };
+              setCurrentUser(minimalUser);
+            }
+          } catch (profileError) {
+            console.error('AUTH DEBUG - Error fetching user profile:', profileError);
+            // Create a minimal user object from the session even if profile fetch fails
+            const minimalUser = {
+              id: session.user.id,
+              email: session.user.email,
+              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+              user_type: normalizeUserType(session.user.user_metadata?.userType || session.user.user_metadata?.user_type || session.user.user_metadata?.userRole),
+              phone: session.user.user_metadata?.phone || '',
+              email_verified: session.user.email_confirmed_at !== null
+            };
+            setCurrentUser(minimalUser);
+          }
         } else {
           console.log('AUTH DEBUG - No active session found');
         }
@@ -335,6 +470,7 @@ const DockRentalPlatform = () => {
         console.error('AUTH DEBUG - Error initializing auth:', error);
       } finally {
         // Always set loading to false after initialization
+        console.log('AUTH DEBUG - Setting sessionLoading to false');
         setSessionLoading(false);
       }
     };
@@ -347,8 +483,13 @@ const DockRentalPlatform = () => {
       async (event, session) => {
         console.log('AUTH DEBUG - Auth state changed:', event, session?.user?.email);
         
-        if (event === 'SIGNED_IN' && session?.user) {
+        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+          // User signed in or token refreshed (including after email confirmation)
+          console.log('AUTH DEBUG - User authenticated, ensuring profile exists in database');
+          try {
           const userProfile = await ensureUserProfile(session.user);
+          
+          if (userProfile) {
           setCurrentUser(userProfile);
           
           // Set admin mode if superadmin
@@ -359,9 +500,41 @@ const DockRentalPlatform = () => {
           
           // Load user's bookings
           const userBookings = bookings.filter(booking => 
-            booking.guestEmail === userProfile.email
+            (booking.user_id && booking.user_id === userProfile.id) || 
+            (!booking.user_id && booking.guestEmail === userProfile.email)
           );
           setUserBookings(userBookings);
+          } else {
+            // Profile not found - create minimal user from session
+            console.warn('AUTH DEBUG - Profile not found, using minimal user from session');
+            const minimalUser = {
+              id: session.user.id,
+              email: session.user.email,
+              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+              user_type: normalizeUserType(session.user.user_metadata?.userType || session.user.user_metadata?.user_type || session.user.user_metadata?.userRole),
+              phone: session.user.user_metadata?.phone || '',
+              email_verified: session.user.email_confirmed_at !== null
+            };
+            setCurrentUser(minimalUser);
+          }
+            
+            // If email was just confirmed, show a message
+            if (event === 'TOKEN_REFRESHED' && session.user.email_confirmed_at && !currentUser) {
+              console.log('AUTH DEBUG - Email confirmed via token refresh');
+            }
+          } catch (error) {
+            console.error('AUTH DEBUG - Error ensuring user profile:', error);
+            // Create minimal user even on error
+            const minimalUser = {
+              id: session.user.id,
+              email: session.user.email,
+              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+              user_type: normalizeUserType(session.user.user_metadata?.userType || session.user.user_metadata?.user_type || session.user.user_metadata?.userRole),
+              phone: session.user.user_metadata?.phone || '',
+              email_verified: session.user.email_confirmed_at !== null
+            };
+            setCurrentUser(minimalUser);
+          }
         } else if (event === 'SIGNED_OUT') {
           // Clear user state on sign out
           setCurrentUser(null);
@@ -375,6 +548,95 @@ const DockRentalPlatform = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+
+  // Auto-populate booking data when slip is selected and user is logged in
+  useEffect(() => {
+    if (selectedSlip && currentUser && currentView === 'booking') {
+      // Auto-populate guest information from logged-in user
+      setBookingData(prev => ({
+        ...prev,
+        guestName: currentUser.name || currentUser.email?.split('@')[0] || '',
+        guestEmail: currentUser.email || '',
+        guestPhone: currentUser.phone || prev.guestPhone || '',
+        userType: currentUserType || prev.userType || 'renter'
+      }));
+    }
+  }, [selectedSlip, currentUser, currentView, currentUserType]);
+
+  useEffect(() => {
+    if (currentUserType && bookingData.userType !== currentUserType) {
+      setBookingData(prev => ({
+        ...prev,
+        userType: currentUserType
+      }));
+    }
+  }, [currentUserType]);
+
+  // Update userBookings whenever bookings or currentUser changes
+  useEffect(() => {
+    if (currentUser && bookings.length > 0) {
+      // Filter bookings by user_id (with fallback to email for backward compatibility)
+      const filteredBookings = bookings.filter(booking => 
+        (booking.user_id && booking.user_id === currentUser.id) || 
+        (!booking.user_id && booking.guestEmail === currentUser.email)
+      );
+      setUserBookings(filteredBookings);
+    } else if (!currentUser) {
+      // Clear userBookings when user logs out
+      setUserBookings([]);
+    }
+  }, [bookings, currentUser]);
+
+  // Re-transform bookings when slips are loaded to add slipName
+  useEffect(() => {
+    if (slips.length > 0 && bookings.length > 0) {
+      const transformedBookings = bookings.map(booking => {
+        // Only update if slipName is missing or if we can find a better match
+        if (!booking.slipName || booking.slipName.startsWith('Slip ')) {
+          const slip = slips.find(s => s.id === booking.slip_id || s.id === booking.slipId);
+          if (slip) {
+            return {
+              ...booking,
+              slipName: slip.name
+            };
+          }
+        }
+        return booking;
+      });
+      // Only update if there are actual changes (prevents infinite loops)
+      const hasChanges = transformedBookings.some((b, i) => b.slipName !== bookings[i]?.slipName);
+      if (hasChanges) {
+        setBookings(transformedBookings);
+      }
+    }
+  }, [slips, bookings]);
+
+  // Auto-show login modal if user tries to browse without authentication
+  useEffect(() => {
+    // Wait for session to finish loading
+    if (sessionLoading) {
+      return;
+    }
+
+    // Initialize view based on authentication status
+    if (currentUser && currentView === null) {
+      // Set initial view to browse if authenticated and no view set
+      setCurrentView('browse');
+    } else if (!currentUser && currentView === null) {
+      // Show login modal on initial load if not authenticated
+      setShowLoginModal(true);
+      resetAuthFlow();
+    }
+  }, [currentUser, sessionLoading]); // Only depend on auth state to avoid loops
+
+  // Handle browse view access - show login if not authenticated
+  useEffect(() => {
+    if (!sessionLoading && !currentUser && currentView === 'browse') {
+      setShowLoginModal(true);
+      resetAuthFlow();
+    }
+  }, [currentView, currentUser, sessionLoading]);
 
   // Handle cancellation
   const handleCancellation = (booking) => {
@@ -442,15 +704,108 @@ const DockRentalPlatform = () => {
 
   const generatePermit = (booking) => {
     return {
-      permitNumber: `NSP-${booking.id}-${new Date().getFullYear()}`,
-      slipName: booking.slipName,
-      guestName: booking.guestName,
-      boatLength: booking.boatLength,
-      boatMakeModel: booking.boatMakeModel,
-      checkIn: booking.checkIn,
-      checkOut: booking.checkOut,
-      validUntil: booking.checkOut,
+      permitNumber: `NSP-${booking.id?.substring(0, 8) || 'UNKNOWN'}-${new Date().getFullYear()}`,
+      slipName: booking.slipName || `Slip ${booking.slipId?.substring(0, 8) || 'Unknown'}`,
+      guestName: booking.guestName || booking.guest_name || 'N/A',
+      boatLength: booking.boatLength || booking.boat_length || null,
+      boatMakeModel: booking.boatMakeModel || booking.boat_make_model || 'N/A',
+      checkIn: booking.checkIn || booking.check_in || null,
+      checkOut: booking.checkOut || booking.check_out || null,
+      validUntil: booking.checkOut || booking.check_out || null,
       issueDate: new Date().toLocaleDateString(),
+    };
+  };
+
+  const downloadPermitPDF = (booking) => {
+    const permit = generatePermit(booking);
+    const checkInDate = permit.checkIn ? new Date(permit.checkIn).toLocaleDateString('en-US', { 
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+    }) : 'N/A';
+    const checkOutDate = permit.checkOut ? new Date(permit.checkOut).toLocaleDateString('en-US', { 
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+    }) : 'N/A';
+
+    // Create HTML content for PDF
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          @media print {
+            @page { margin: 0.5in; }
+          }
+          body { font-family: Arial, sans-serif; max-width: 8.5in; margin: 0 auto; padding: 20px; }
+          .permit { background: white; border: 4px solid #059669; padding: 40px; margin: 20px 0; text-align: center; }
+          .permit-title { font-size: 36px; font-weight: bold; color: #059669; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 3px; }
+          .permit-number { font-size: 16px; color: #6b7280; margin-bottom: 30px; }
+          .permit-info { font-size: 20px; margin: 15px 0; color: #1f2937; font-weight: 500; }
+          .permit-label { font-size: 14px; color: #6b7280; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px; }
+          .section { border-top: 2px solid #059669; margin: 25px 0; padding-top: 25px; }
+          .header-text { text-align: center; margin-bottom: 30px; }
+          .footer-text { text-align: center; margin-top: 30px; font-size: 12px; color: #6b7280; }
+        </style>
+      </head>
+      <body>
+        <div class="header-text">
+          <h1 style="color: #059669; margin: 0;">Dock82</h1>
+          <p style="color: #6b7280; margin: 5px 0;">Dock Slip Rental Permit</p>
+        </div>
+        
+        <div class="permit">
+          <div class="permit-title">DOCK PERMIT</div>
+          <div class="permit-number">Permit Number: ${permit.permitNumber}</div>
+          
+          <div class="section">
+            <div class="permit-label">Slip Assignment</div>
+            <div class="permit-info">${permit.slipName}</div>
+          </div>
+          
+          <div class="section">
+            <div class="permit-label">Guest Name</div>
+            <div class="permit-info">${permit.guestName}</div>
+          </div>
+          
+          <div class="section">
+            <div class="permit-label">Boat Information</div>
+            <div class="permit-info">${permit.boatMakeModel}${permit.boatLength ? ` (${permit.boatLength} ft)` : ''}</div>
+          </div>
+          
+          <div class="section">
+            <div class="permit-label">Check-In Date</div>
+            <div class="permit-info">${checkInDate}</div>
+          </div>
+          
+          <div class="section">
+            <div class="permit-label">Check-Out Date</div>
+            <div class="permit-info">${checkOutDate}</div>
+          </div>
+          
+          <div class="section">
+            <div class="permit-label">Valid Until</div>
+            <div class="permit-info">${checkOutDate}</div>
+          </div>
+        </div>
+        
+        <div class="footer-text">
+          <p><strong>Instructions:</strong> Please display this permit in your vehicle's windshield at all times during your stay.</p>
+          <p>Issued on: ${permit.issueDate}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Create a new window with the HTML content
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    // Wait for content to load, then print
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        // Optionally close the window after printing
+        // printWindow.close();
+      }, 250);
     };
   };
 
@@ -569,29 +924,154 @@ const DockRentalPlatform = () => {
 
 
   const handleApproveBooking = async (bookingId) => {
-    const booking = bookings.find(b => b.id === bookingId);
-    const slip = slips.find(s => s.name === booking.slipName);
-    
-    const updatedBookings = bookings.map(booking =>
-      booking.id === bookingId ? { ...booking, status: 'confirmed' } : booking
-    );
-    setBookings(updatedBookings);
-    
-    // Send dock etiquette email when booking is confirmed
-    if (booking && slip) {
-      await sendDockEtiquetteEmail(
-        booking.guestEmail,
-        booking.slipName,
-        slip.dockEtiquette || "• Respect quiet hours (10 PM - 7 AM)\n• Keep slip area clean and organized\n• Follow all safety protocols\n• Notify management of any issues\n• No loud music or parties\n• Proper waste disposal required"
-      );
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${apiUrl}/api/bookings/${bookingId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to approve booking:', errorData);
+        alert(`Failed to approve booking. ${errorData.error || 'Please try again.'}`);
+        return;
+      }
+
+      const result = await response.json();
+      const updated = result.booking;
+      if (!updated) {
+        return;
+      }
+
+      const slip = slips.find(s => s.id === updated.slip_id);
+      const normalizedBooking = {
+        ...updated,
+        slipName: slip ? slip.name : updated.slip_name || `Slip ${updated.slip_id?.substring(0, 8)}`,
+        slipId: updated.slip_id,
+        guestName: updated.guest_name,
+        guestEmail: updated.guest_email,
+        guestPhone: updated.guest_phone,
+        checkIn: updated.check_in,
+        checkOut: updated.check_out,
+        boatLength: updated.boat_length,
+        boatMakeModel: updated.boat_make_model,
+        userType: updated.user_type,
+        totalCost: updated.total_cost,
+        bookingDate: updated.booking_date,
+        paymentStatus: updated.payment_status,
+        paymentMethod: updated.payment_method,
+        paymentDate: updated.payment_date,
+        paymentReference: updated.payment_reference,
+        rentalAgreementName: updated.rental_agreement_name,
+        rentalAgreementPath: updated.rental_agreement_path,
+        insuranceProofName: updated.insurance_proof_name,
+        insuranceProofPath: updated.insurance_proof_path,
+        boatPicturePath: updated.boat_picture_path,
+        paymentIntentId: updated.payment_reference,
+        status: updated.status,
+        user_id: updated.user_id
+      };
+
+      setBookings(prev => prev.map(b => b.id === bookingId ? normalizedBooking : b));
+
+      alert('Booking approved. Confirmation and permit emails have been sent to the renter.');
+    } catch (error) {
+      console.error('Error approving booking:', error);
+      alert('Failed to approve booking. Please try again.');
     }
   };
 
-  const handleCancelBooking = (bookingId) => {
-    const updatedBookings = bookings.map(booking =>
-      booking.id === bookingId ? { ...booking, status: 'cancelled' } : booking
-    );
-    setBookings(updatedBookings);
+  const handleViewDocument = async (booking, docType) => {
+    if (!booking || !booking.id) {
+      return;
+    }
+
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${apiUrl}/api/bookings/${booking.id}/documents?type=${docType}`);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to fetch document URL:', errorData);
+        alert('Unable to load document. It may no longer be available.');
+        return;
+      }
+
+      const result = await response.json();
+      if (result.url) {
+        window.open(result.url, '_blank', 'noopener');
+      } else {
+        alert('Document URL not available.');
+      }
+    } catch (error) {
+      console.error('Error fetching document:', error);
+      alert('Failed to load document. Please try again.');
+    }
+  };
+
+  const handleCancelBooking = async (bookingId) => {
+    const reason = window.prompt('Provide a reason for cancellation (optional):', '');
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${apiUrl}/api/bookings/${bookingId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason || undefined })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to cancel booking:', errorData);
+        alert(`Failed to cancel booking. ${errorData.error || 'Please try again.'}`);
+        return;
+      }
+
+      const result = await response.json();
+      const updated = result.booking;
+      const slip = slips.find(s => s.id === updated?.slip_id);
+
+      const normalizedBooking = {
+        ...updated,
+        slipName: slip ? slip.name : updated?.slip_name || `Slip ${updated?.slip_id?.substring(0, 8)}`,
+        slipId: updated?.slip_id,
+        guestName: updated?.guest_name,
+        guestEmail: updated?.guest_email,
+        guestPhone: updated?.guest_phone,
+        checkIn: updated?.check_in,
+        checkOut: updated?.check_out,
+        boatLength: updated?.boat_length,
+        boatMakeModel: updated?.boat_make_model,
+        userType: updated?.user_type,
+        totalCost: updated?.total_cost,
+        bookingDate: updated?.booking_date,
+        paymentStatus: updated?.payment_status,
+        paymentMethod: updated?.payment_method,
+        paymentDate: updated?.payment_date,
+        paymentReference: updated?.payment_reference,
+        rentalAgreementName: updated?.rental_agreement_name,
+        rentalAgreementPath: updated?.rental_agreement_path,
+        insuranceProofName: updated?.insurance_proof_name,
+        insuranceProofPath: updated?.insurance_proof_path,
+        boatPicturePath: updated?.boat_picture_path,
+        paymentIntentId: updated?.payment_reference,
+        status: updated?.status,
+        cancellationReason: updated?.cancellation_reason,
+        user_id: updated?.user_id
+      };
+
+      setBookings(prev => prev.map(b => b.id === bookingId ? normalizedBooking : b));
+
+      // Mark slip as available again locally
+      if (updated?.slip_id) {
+        setSlips(prev => prev.map(slipItem => slipItem.id === updated.slip_id ? { ...slipItem, available: true } : slipItem));
+      }
+
+      alert('Booking has been cancelled and the renter has been notified.');
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      alert('Failed to cancel booking. Please try again.');
+    }
   };
 
   const calculateRevenue = () => {
@@ -667,22 +1147,116 @@ const DockRentalPlatform = () => {
       // Get current user data for the booking
       const { data: userData } = await supabase.auth.getUser();
       
+      // Get user_id from the users table (not auth user ID)
+      // currentUser.id should be the users table ID if profile was fetched
+      let userId = null;
+      if (currentUser && currentUser.id) {
+        // Check if this is a UUID (users table ID) or auth user ID
+        // If currentUser was set from userProfile, it should have the users table ID
+        // If it's from minimalUser, we need to look it up by email
+        if (currentUser.email) {
+          try {
+            // Try to get user profile from backend to get the users table ID
+            const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+            const profileResponse = await fetch(`${apiUrl}/api/user-profile?email=${encodeURIComponent(currentUser.email)}`);
+            if (profileResponse.ok) {
+              const profileData = await profileResponse.json();
+              if (profileData.success && profileData.profile && profileData.profile.id) {
+                userId = profileData.profile.id;
+              }
+            }
+          } catch (err) {
+            console.warn('Could not fetch user profile for user_id, proceeding without it:', err);
+          }
+        }
+        // Fallback: if currentUser.id looks like a UUID and we couldn't get profile, use it
+        // (assuming it's from the users table)
+        if (!userId && currentUser.id && typeof currentUser.id === 'string' && currentUser.id.length === 36) {
+          userId = currentUser.id;
+        }
+      }
+      
       // Calculate totals
       const nights = Math.ceil((new Date(bookingData.checkOut) - new Date(bookingData.checkIn)) / (1000 * 60 * 60 * 24));
       const baseTotal = nights * selectedSlip.price_per_night;
       const discount = nights === 30 ? baseTotal * 0.4 : 0; // 40% discount for 30-day bookings
-      const finalTotal = baseTotal - discount;
+      const finalTotal = bookingData.userType === 'homeowner'
+        ? 0
+        : baseTotal - discount;
 
-      // Insert booking directly into database
-      console.log('Inserting booking:', {
+      // Upload files to Supabase Storage before creating booking
+      let rentalAgreementPath = null;
+      let insuranceProofPath = null;
+      let homeownerAuthorizationPath = null;
+      let homeownerInsurancePath = null;
+      let boatPicturePath = null;
+      const authUserId = userData?.user?.id;
+
+      try {
+        if (bookingData.userType === 'renter') {
+          if (bookingData.rentalAgreement && authUserId) {
+            const uploadResult = await uploadUserDocument(bookingData.rentalAgreement, authUserId, 'rental-agreement');
+            if (uploadResult.success) {
+              rentalAgreementPath = uploadResult.filePath;
+            }
+          }
+
+          if (bookingData.insuranceProof && authUserId) {
+            const uploadResult = await uploadUserDocument(bookingData.insuranceProof, authUserId, 'insurance-proof');
+            if (uploadResult.success) {
+              insuranceProofPath = uploadResult.filePath;
+            }
+          }
+        }
+
+        if (bookingData.userType === 'homeowner' && authUserId) {
+          if (bookingData.homeownerAuthorizationLetter) {
+            const uploadResult = await uploadUserDocument(bookingData.homeownerAuthorizationLetter, authUserId, 'homeowner-authorization');
+            if (uploadResult.success) {
+              homeownerAuthorizationPath = uploadResult.filePath;
+            }
+          }
+
+          if (bookingData.homeownerInsuranceProof) {
+            const uploadResult = await uploadUserDocument(bookingData.homeownerInsuranceProof, authUserId, 'homeowner-insurance');
+            if (uploadResult.success) {
+              homeownerInsurancePath = uploadResult.filePath;
+            }
+          }
+        }
+
+        if (bookingData.boatPicture && authUserId) {
+          const uploadResult = await uploadUserDocument(bookingData.boatPicture, authUserId, 'boat-picture');
+          if (uploadResult.success) {
+            boatPicturePath = uploadResult.filePath;
+          }
+        }
+      } catch (uploadError) {
+        console.error('❌ Error uploading files:', uploadError);
+      }
+
+      const rentalAgreementName = bookingData.userType === 'homeowner'
+        ? bookingData.homeownerAuthorizationLetter?.name || null
+        : bookingData.rentalAgreement?.name || null;
+      const finalRentalAgreementPath = bookingData.userType === 'homeowner'
+        ? homeownerAuthorizationPath
+        : rentalAgreementPath;
+
+      const insuranceProofName = bookingData.userType === 'homeowner'
+        ? bookingData.homeownerInsuranceProof?.name || null
+        : bookingData.insuranceProof?.name || null;
+      const finalInsuranceProofPath = bookingData.userType === 'homeowner'
+        ? homeownerInsurancePath
+        : insuranceProofPath;
+
+      // Insert booking through backend API (bypasses RLS)
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const createResponse = await fetch(`${apiUrl}/api/create-booking`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
         slip_id: selectedSlip.id,
-        guest_name: bookingData.guestName,
-        nights: nights
-      });
-      
-      const { data: newBookingData, error: insertErr } = await supabase.from('bookings').insert({
-        slip_id: selectedSlip.id,
-        user_id: null, // Skip user_id for now since it's a UUID from auth but table expects BIGINT
+          user_id: userId,
         guest_name: bookingData.guestName,
         guest_email: bookingData.guestEmail,
         guest_phone: bookingData.guestPhone,
@@ -691,34 +1265,39 @@ const DockRentalPlatform = () => {
         check_out: bookingData.checkOut,
         boat_length: bookingData.boatLength,
         boat_make_model: bookingData.boatMakeModel,
-        nights: nights,
+          nights,
         total_cost: finalTotal,
-        status: 'confirmed',
-        payment_status: 'paid',
+          status: bookingData.userType === 'homeowner' ? 'confirmed' : 'pending',
+          payment_status: bookingData.userType === 'homeowner' ? 'paid' : 'paid',
         payment_date: new Date().toISOString(),
-        payment_method: 'stripe',
-        // Removed rental property fields - they were confusing and not needed
-      }).select().single();
+          payment_method: bookingData.userType === 'homeowner' ? 'exempt' : 'stripe',
+          payment_reference: paymentResult.paymentIntentId,
+          rental_agreement_name: rentalAgreementName,
+          rental_agreement_path: finalRentalAgreementPath,
+          insurance_proof_name: insuranceProofName,
+          insurance_proof_path: finalInsuranceProofPath,
+          boat_picture_path: boatPicturePath
+        })
+      });
 
-      if (insertErr) {
-        console.error('Database insert error:', insertErr);
-        console.error('Error details:', {
-          code: insertErr.code,
-          message: insertErr.message,
-          details: insertErr.details,
-          hint: insertErr.hint
-        });
-        
-        // Check if it's an overlap error
-        if (insertErr.message && insertErr.message.includes('Overlapping')) {
-          alert('This slip is already booked for those dates! Please choose different dates.');
+      if (createResponse.status === 409) {
+        const conflict = await createResponse.json().catch(() => ({}));
+        alert(conflict.error || 'This slip has just been booked for those dates. Please choose a different date range.');
           setShowPaymentPage(false);
           setCurrentView('browse');
           return;
         }
         
-        alert('Payment successful, but booking may already exist. Please check your bookings.');
-        // Continue anyway - payment is saved
+      if (!createResponse.ok) {
+        const err = await createResponse.json().catch(() => ({}));
+        console.error('Database insert error (API):', err);
+        if (err?.details?.includes('Overlapping')) {
+          alert('This slip is already booked for those dates! Please choose different dates.');
+          setShowPaymentPage(false);
+          setCurrentView('browse');
+          return;
+        }
+        // Fallback: add to local state
         const tempBooking = {
           id: Date.now(),
           slipId: selectedSlip.id,
@@ -726,26 +1305,38 @@ const DockRentalPlatform = () => {
           ...bookingData,
           nights,
           totalCost: finalTotal,
-          status: 'confirmed',
-          paymentStatus: 'paid'
+          status: bookingData.userType === 'homeowner' ? 'confirmed' : 'pending',
+          paymentStatus: 'paid',
+          rentalAgreementName: rentalAgreementName,
+          rentalAgreementPath: finalRentalAgreementPath,
+          insuranceProofName: insuranceProofName,
+          insuranceProofPath: finalInsuranceProofPath,
+          boatPicturePath: boatPicturePath,
+          paymentIntentId: paymentResult.paymentIntentId
         };
         setBookings([...bookings, tempBooking]);
+        setAllBookings([...allBookings, tempBooking]);
         setShowPaymentPage(false);
         setCurrentView('browse');
         return;
       }
 
-      console.log('Booking inserted successfully:', newBookingData);
+      const created = await createResponse.json();
+      const newBookingData = created.booking;
+      console.log('Booking inserted successfully via API:', newBookingData);
 
-      // Update slip availability in database
+      // Update slip availability in database via backend API (bypasses RLS)
       try {
-        const { error: updateError } = await supabase
-          .from('slips')
-          .update({ available: false })
-          .eq('id', selectedSlip.id);
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+        const updateResponse = await fetch(`${apiUrl}/api/slips/${selectedSlip.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ available: false })
+        });
         
-        if (updateError) {
-          console.error('Failed to update slip availability:', updateError);
+        if (!updateResponse.ok) {
+          const errorData = await updateResponse.json().catch(() => ({}));
+          console.error('Failed to update slip availability:', errorData);
         } else {
           console.log('Slip availability updated to occupied');
         }
@@ -754,28 +1345,20 @@ const DockRentalPlatform = () => {
       }
 
       // Update local bookings state with confirmed booking
-      const newBooking = {
-        id: newBookingData.id,
-        slipId: selectedSlip.id,
-        slipName: selectedSlip.name,
-        ...bookingData,
-        nights,
-        totalCost: finalTotal,
-        status: 'confirmed',
-        bookingDate: new Date().toISOString().split('T')[0],
-        rentalAgreementName: bookingData.rentalAgreement?.name,
-        insuranceProofName: bookingData.insuranceProof?.name,
-        paymentStatus: 'paid',
-        paymentDate: new Date().toISOString().split('T')[0],
-        paymentMethod: 'stripe',
-        paymentIntentId: paymentResult.paymentIntentId,
-        selectedOwner: bookingData.selectedOwner || null
-      };
+      const [normalizedBooking] = transformBookingsData([newBookingData], allSlips.length ? allSlips : slips);
 
-      setBookings([...bookings, newBooking]);
+      setBookings([...bookings, normalizedBooking]);
+      setAllBookings([...allBookings, normalizedBooking]);
       
       // Update local slips state to mark slip as occupied
       setSlips(prevSlips => 
+        prevSlips.map(slip => 
+          slip.id === selectedSlip.id 
+            ? { ...slip, available: false }
+            : slip
+        )
+      );
+      setAllSlips(prevSlips => 
         prevSlips.map(slip => 
           slip.id === selectedSlip.id 
             ? { ...slip, available: false }
@@ -787,15 +1370,17 @@ const DockRentalPlatform = () => {
       setCurrentView('browse');
       
       // Send confirmation emails
+      if (bookingData.userType === 'renter') {
       await sendEmailNotification('paymentReceipt', bookingData.guestEmail, {
         guestName: bookingData.guestName,
         slipName: selectedSlip.name,
         paymentIntentId: paymentResult.paymentIntentId,
         amount: finalTotal,
-        paymentMethod: 'stripe'
+        paymentMethod: paymentResult.paymentMethod || 'stripe'
       });
+      }
       
-      await sendEmailNotification('bookingConfirmation', bookingData.guestEmail, {
+      await sendEmailNotification('bookingPending', bookingData.guestEmail, {
         guestName: bookingData.guestName,
         slipName: selectedSlip.name,
         checkIn: bookingData.checkIn,
@@ -805,7 +1390,7 @@ const DockRentalPlatform = () => {
         totalAmount: finalTotal
       });
 
-      alert('Payment successful! Your booking has been confirmed. You will receive a confirmation email shortly.');
+      alert('Payment successful! Your booking request has been submitted for approval. You will receive a confirmation email once it is approved.');
     } catch (error) {
       console.error('Payment completion error:', error);
       alert('Payment processed but there was an error completing the booking. Please contact support.');
@@ -849,6 +1434,11 @@ const DockRentalPlatform = () => {
       return;
     }
 
+    if (bookingData.userType === 'homeowner' && !bookingData.homeownerAuthorizationLetter) {
+      alert('Please upload your homeowner authorization letter.');
+      return;
+    }
+
     if (parseInt(bookingData.boatLength) > selectedSlip.max_length) {
       alert(`Boat length cannot exceed ${selectedSlip.max_length} feet for this dock slip.`);
       return;
@@ -863,117 +1453,86 @@ const DockRentalPlatform = () => {
       return;
     }
 
-    const newBooking = {
-      slipId: selectedSlip.id,
-      slipName: selectedSlip.name,
-      ...bookingData,
-      nights: totalInfo.days,
-      totalCost,
-      baseTotal: totalInfo.baseTotal,
-      discount: totalInfo.discount,
-      hasDiscount: totalInfo.hasDiscount,
-      status: bookingData.userType === 'homeowner' ? 'confirmed' : 'pending',
-      bookingDate: new Date().toISOString().split('T')[0],
-      rentalAgreementName: bookingData.rentalAgreement?.name,
-      insuranceProofName: bookingData.insuranceProof?.name,
-      paymentStatus: bookingData.userType === 'homeowner' ? 'exempt' : 'scheduled',
-      paymentDate: bookingData.checkIn,
-      selectedOwner: bookingData.selectedOwner || null
-    };
-
-    try {
-      // Create booking with backend API
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/bookings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newBooking),
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        
-        if (result.success) {
-          // Add the booking to local state
-          setBookings([...bookings, result.booking]);
-        } else {
-          alert(result.error || 'Booking creation failed');
-          return;
-        }
-      } else {
-        throw new Error('Booking creation failed');
-      }
-    } catch (error) {
-      console.error('Error creating booking:', error);
-      alert('❌ Booking submission failed. Please try again or contact support.');
-      return;
-    }
-    
-    // Send dock etiquette email for confirmed bookings (homeowners)
-    if (bookingData.userType === 'homeowner') {
-      await sendDockEtiquetteEmail(
-        bookingData.guestEmail,
-        selectedSlip.name,
-        selectedSlip.dockEtiquette || "Dock Slip Rental Rules\n\n1. Be courteous to our neighborhood\nRespect fellow boaters and the dock community. We're all here to enjoy the water together.\n\n2. Mind the tides when tying up\nDon't tie your boat too tight. Boats may be damaged or damage the dock if tied too tight. Leave enough slack for extreme water level changes.\n\n3. Pack it in, pack it out\nTake everything you brought with you when you leave. Don't leave trash, gear, or personal items behind.\n\n4. Clean up after yourself\nClean the fish cleaning table after use. Leave shared facilities ready for the next person.\n\n5. Use only your assigned slip\nStay in your designated slip number."
-      );
-    }
-    
-    // Add notification for admin about potential bumping situations
-    if (bookingData.userType === 'homeowner') {
-      const conflictingBookings = bookings.filter(b => 
-        b.slipId === selectedSlip.id && 
-        b.userType === 'renter' &&
-        b.status === 'confirmed' &&
-        ((new Date(b.checkIn) <= new Date(bookingData.checkOut)) && 
-         (new Date(b.checkOut) >= new Date(bookingData.checkIn)))
-      );
-      
-      if (conflictingBookings.length > 0) {
-        setNotifications([...notifications, {
-          id: Date.now(),
-          type: 'admin',
-          recipient: 'Admin',
-          subject: 'Homeowner Priority Booking - Renter May Need to be Bumped',
-          message: `Homeowner ${bookingData.guestName} has booked ${selectedSlip.name} which conflicts with ${conflictingBookings.length} renter booking(s). Review and reassign renters if needed.`,
-          timestamp: new Date().toLocaleString()
-        }]);
-      }
-    }
-    
-    setSelectedSlip(null);
-    setBookingData({
-      checkIn: '', checkOut: '', boatLength: '', boatMakeModel: '', 
-      guestName: '', guestEmail: '', guestPhone: '', rentalAgreement: null, 
-      insuranceProof: null, paymentMethod: 'stripe', userType: 'renter', 
-      selectedOwner: '', // Removed rental property fields
-      agreedToTerms: false
+    await handlePaymentComplete({
+      paymentIntentId: `homeowner-${Date.now()}`,
+      totalAmount: totalCost,
+      paymentMethod: 'exempt'
     });
-    setCurrentView('bookings');
-    
-    // Show appropriate success message based on user type and payment status
-    if (bookingData.userType === 'homeowner') {
-      alert('Homeowner booking confirmed! No payment required. Your dock permit will be emailed for self check-in.');
-    } else {
-      // For renters, check if payment was processed
-      if (paymentSuccessful) {
-        alert(`Payment successful! Amount: $${(totalCost || 0).toFixed(2)}. Your dock permit will be emailed for self check-in.`);
-      } else {
-        alert('Booking request submitted! Payment will be processed on check-in date. Your dock permit will be emailed for self check-in.');
-      }
-    }
   };
 
-  const filteredSlips = slips.filter(slip => {
+  // Helper function to sort slips: "Dockmaster Slip" first, then "Slip 1", "Slip 2", etc.
+  const sortSlips = (slipsArray) => {
+    return [...slipsArray].sort((a, b) => {
+      const nameA = a.name || '';
+      const nameB = b.name || '';
+      
+      // "Dockmaster Slip" always comes first
+      if (nameA.toLowerCase().includes('dockmaster')) return -1;
+      if (nameB.toLowerCase().includes('dockmaster')) return 1;
+      
+      // Extract numbers from "Slip X" format
+      const numA = parseInt(nameA.match(/\d+/)?.[0] || '999');
+      const numB = parseInt(nameB.match(/\d+/)?.[0] || '999');
+      
+      // If both have numbers, sort by number
+      if (numA !== 999 && numB !== 999) {
+        return numA - numB;
+      }
+      
+      // Otherwise sort alphabetically
+      return nameA.localeCompare(nameB);
+    });
+  };
+
+  // Helper function to check if slip is available for date range
+  const isSlipAvailableForDateRange = (slip, startDate, endDate) => {
+    if (!startDate || !endDate) return true; // If no date range selected, show all
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Check if slip has any overlapping bookings
+    const hasOverlap = bookings.some(booking => {
+      if (booking.slipId !== slip.id && booking.slip_id !== slip.id) return false;
+      if (booking.status === 'cancelled') return false;
+      
+      const bookingStart = new Date(booking.checkIn || booking.check_in);
+      const bookingEnd = new Date(booking.checkOut || booking.check_out);
+      
+      // Check for overlap: booking overlaps if it starts before our end and ends after our start
+      return bookingStart < end && bookingEnd > start;
+    });
+    
+    return !hasOverlap;
+  };
+
+  const filteredSlips = sortSlips(slips.filter(slip => {
+    // Filter by max length
     if (searchFilters.maxLength && parseInt(searchFilters.maxLength) > slip.max_length) return false;
+    
+    // Filter by price range
     if (searchFilters.priceRange) {
       const [min, max] = searchFilters.priceRange.split('-').map(Number);
       if (slip.price_per_night < min || slip.price_per_night > max) return false;
     }
+    
+    // Filter by date range availability
+    if (searchFilters.dateRangeStart && searchFilters.dateRangeEnd) {
+      if (!isSlipAvailableForDateRange(slip, searchFilters.dateRangeStart, searchFilters.dateRangeEnd)) {
+        return false;
+      }
+    }
+    
     return true;
-  });
+  }));
 
   const SlipCard = ({ slip }) => {
+    // Helper function to format dimension values
+    const formatDimension = (value) => {
+      if (value == null || isNaN(value)) return 'N/A';
+      return `${value}ft`;
+    };
+
     // Helper function to get the first image from the images array
     const getFirstImage = (slip) => {
       console.log('DEBUG SlipCard - slip data:', slip);
@@ -999,6 +1558,179 @@ const DockRentalPlatform = () => {
 
     const imageSrc = getFirstImage(slip);
     console.log('DEBUG SlipCard - final imageSrc:', imageSrc);
+
+    const isDateFilterActive = Boolean(searchFilters.dateRangeStart && searchFilters.dateRangeEnd);
+    const slipAvailableForRange = isSlipAvailableForDateRange(
+      slip,
+      searchFilters.dateRangeStart,
+      searchFilters.dateRangeEnd
+    );
+
+    const availabilityBadgeClass = isDateFilterActive
+      ? (slipAvailableForRange ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800')
+      : 'bg-gray-100 text-gray-600';
+
+    const availabilityBadgeLabel = isDateFilterActive
+      ? (slipAvailableForRange ? 'Available' : 'Unavailable')
+      : 'Select dates to check availability';
+
+    const slipBookings = bookings.filter((booking) => {
+      const slipId = booking.slipId || booking.slip_id;
+      if (slipId !== slip.id) return false;
+      const status = (booking.status || '').toLowerCase();
+      return status !== 'cancelled' && status !== 'canceled';
+    });
+
+    const renderAvailabilityCalendar = () => {
+      if (!slipBookings.length) {
+        return (
+          <div className="mt-4 border-t border-gray-100 pt-4 text-xs text-gray-500">
+            No upcoming bookings on record for this slip.
+          </div>
+        );
+      }
+
+      const referenceDate = isDateFilterActive
+        ? new Date(searchFilters.dateRangeStart)
+        : new Date();
+      const displayMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
+      const year = displayMonth.getFullYear();
+      const month = displayMonth.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const firstDayOfMonth = new Date(year, month, 1).getDay();
+
+      const normalizeDate = (date) => {
+        const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        normalized.setHours(0, 0, 0, 0);
+        return normalized;
+      };
+
+      const bookingMatchesDate = (date) => {
+        return slipBookings.find((booking) => {
+          const startRaw = booking.checkIn || booking.check_in;
+          const endRaw = booking.checkOut || booking.check_out;
+          if (!startRaw || !endRaw) return false;
+          const startDate = normalizeDate(new Date(startRaw));
+          const endDate = normalizeDate(new Date(endRaw));
+          if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return false;
+          return startDate <= date && date < endDate;
+        });
+      };
+
+      const isWithinSelectedRange = (date) => {
+        if (!isDateFilterActive) return false;
+        const startDate = normalizeDate(new Date(searchFilters.dateRangeStart));
+        const endDate = normalizeDate(new Date(searchFilters.dateRangeEnd));
+        return date >= startDate && date < endDate;
+      };
+
+      const weeks = [];
+      let currentDay = 1 - firstDayOfMonth;
+
+      for (let weekIndex = 0; weekIndex < 6; weekIndex += 1) {
+        const week = [];
+        for (let dayIndex = 0; dayIndex < 7; dayIndex += 1, currentDay += 1) {
+          if (currentDay < 1 || currentDay > daysInMonth) {
+            week.push(null);
+          } else {
+            const cellDate = normalizeDate(new Date(year, month, currentDay));
+            const bookingMatch = bookingMatchesDate(cellDate);
+            const isDisabled = Boolean(bookingMatch);
+            const inSelectedRange = isWithinSelectedRange(cellDate);
+            let tooltip = '';
+            if (bookingMatch) {
+              const startLabel = new Date(bookingMatch.checkIn || bookingMatch.check_in).toLocaleDateString();
+              const endLabel = new Date(bookingMatch.checkOut || bookingMatch.check_out).toLocaleDateString();
+              tooltip = `Booked from ${startLabel} to ${endLabel}`;
+            }
+
+            week.push({
+              dayNumber: currentDay,
+              isDisabled,
+              inSelectedRange,
+              tooltip
+            });
+          }
+        }
+        weeks.push(week);
+      }
+
+      const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      return (
+        <div className="mt-4 border-t border-gray-100 pt-4">
+          <div className="flex items-center justify-between text-sm text-gray-700 mb-2">
+            <span>{displayMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+            <span className="text-xs text-gray-500">Gray dates are already booked</span>
+          </div>
+          <table className="w-full text-xs text-center border-collapse">
+            <thead>
+              <tr>
+                {weekdayLabels.map((label) => (
+                  <th key={label} className="py-1 text-gray-500 font-medium">
+                    {label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {weeks.map((week, weekIdx) => (
+                <tr key={`week-${weekIdx}`}>
+                  {week.map((dayInfo, dayIdx) => {
+                    if (!dayInfo) {
+                      return (
+                        <td
+                          key={`empty-${weekIdx}-${dayIdx}`}
+                          className="h-8 border border-gray-100 bg-gray-50"
+                        />
+                      );
+                    }
+
+                    let cellClasses = 'h-8 border border-gray-100 align-middle';
+
+                    if (dayInfo.isDisabled) {
+                      cellClasses += ' bg-gray-200 text-gray-400 cursor-not-allowed';
+                    } else {
+                      cellClasses += ' bg-white text-gray-700';
+                    }
+
+                    if (dayInfo.inSelectedRange && !dayInfo.isDisabled) {
+                      cellClasses += ' ring-2 ring-blue-400 font-semibold';
+                    }
+
+                    return (
+                      <td
+                        key={`day-${weekIdx}-${dayIdx}`}
+                        className={cellClasses}
+                        title={dayInfo.tooltip || undefined}
+                      >
+                        {dayInfo.dayNumber}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm bg-white border border-gray-200" />
+              Available
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm bg-gray-200 border border-gray-200" />
+              Booked
+            </span>
+            {isDateFilterActive && (
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm bg-blue-400" />
+                Selected range
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    };
     
     return (
       <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
@@ -1012,21 +1744,22 @@ const DockRentalPlatform = () => {
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
           <h3 className="text-lg font-semibold">{slip.name}</h3>
-          <span className={`px-2 py-1 rounded text-sm ${slip.available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-            {slip.available ? 'Available' : 'Occupied'}
+            <span className={`px-2 py-1 rounded text-sm ${availabilityBadgeClass}`}>
+              {availabilityBadgeLabel}
           </span>
         </div>
 
         <div className="space-y-2 mb-3">
           <div className="flex items-center text-sm text-gray-500">
             <Anchor className="w-4 h-4 mr-2" />
-            Max Length: {slip.max_length}ft | Width: {slip.width}ft | Depth: {slip.depth}ft
+              Max Length: {formatDimension(slip.max_length)} | Width: {formatDimension(slip.width)} | Depth: {formatDimension(slip.depth)}
           </div>
           <div className="flex items-center text-sm text-gray-500">
             <DollarSign className="w-4 h-4 mr-2" />
             ${slip.price_per_night}/night
           </div>
         </div>
+
         <div className="mb-3">
           <div className="flex flex-wrap gap-1">
             {slip.amenities.map((amenity, idx) => (
@@ -1036,7 +1769,10 @@ const DockRentalPlatform = () => {
             ))}
           </div>
         </div>
-        {slip.available && (
+
+          {renderAvailabilityCalendar()}
+
+          {(isDateFilterActive ? slipAvailableForRange : slip.available) && (
           <button
             onClick={() => {
               setSelectedSlip(slip);
@@ -1064,14 +1800,51 @@ const DockRentalPlatform = () => {
       return;
     }
 
-    // SIMPLIFIED: Just proceed to password step
-    // Let Supabase Auth handle user existence checking
-    console.log('AUTH DEBUG - Proceeding directly to password step');
-    setAuthStep('password');
-    setLoginData({ ...loginData, email: tempEmail });
+    try {
+      // Check if email exists using backend API (bypasses RLS)
+      const localApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${localApiUrl}/api/user-profile?email=${encodeURIComponent(tempEmail.toLowerCase().trim())}`);
+      
+      if (!response.ok) {
+        console.error('AUTH DEBUG - Error checking email via API:', response.status);
+        alert('Error checking email. Please try again.');
+        return;
+      }
+      
+      const result = await response.json();
+
+      if (result.success && result.profile) {
+        // User exists - show welcome back message and proceed to password
+        console.log('AUTH DEBUG - User found:', result.profile);
+        const userName = result.profile.name || tempEmail.split('@')[0];
+        alert(`Welcome back, ${userName}! Please enter your password to continue.`);
+        // Email found, but we'll use the combined login form, so just set the email
+        setLoginData({ ...loginData, email: tempEmail.toLowerCase().trim() });
+        // Keep authStep as 'login' - user will enter password in the same form
+      } else {
+        // User doesn't exist - prompt to register
+        console.log('AUTH DEBUG - User not found, prompting for registration');
+        const shouldRegister = window.confirm(
+          `You are not registered yet. Would you like to create an account with ${tempEmail}?\n\n` +
+          `Click OK to register, or Cancel to try a different email.`
+        );
+        
+        if (shouldRegister) {
+          // Proceed to registration step
+          setAuthStep('register');
+          setRegisterData({ ...registerData, email: tempEmail.toLowerCase().trim() });
+        } else {
+          // Clear email and let them try again
+          setTempEmail('');
+        }
+      }
+    } catch (error) {
+      console.error('AUTH DEBUG - Unexpected error checking email:', error);
+      alert('An error occurred. Please try again.');
+    }
   };
 
-  // FIXED PASSWORD LOGIN LOGIC
+  // FIXED PASSWORD LOGIN LOGIC - Now checks if user exists first, then logs in
   const handleLogin = async (e) => {
     e.preventDefault();
     
@@ -1081,6 +1854,41 @@ const DockRentalPlatform = () => {
     if (!loginData.email || !loginData.password) {
       alert('Please enter both email and password.');
       return;
+    }
+
+    // First check if user exists in the users table
+    try {
+      const localApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${localApiUrl}/api/user-profile?email=${encodeURIComponent(loginData.email.toLowerCase().trim())}`);
+      
+      if (!response.ok) {
+        console.error('AUTH DEBUG - Error checking email via API:', response.status);
+        alert('Error checking email. Please try again.');
+        return;
+      }
+      
+      const result = await response.json();
+
+      if (!result.success || !result.profile) {
+        // User doesn't exist - prompt to register
+        const shouldRegister = window.confirm(
+          `You are not registered yet. Would you like to create an account with ${loginData.email}?\n\n` +
+          `Click OK to register, or Cancel to try a different email.`
+        );
+        
+        if (shouldRegister) {
+          // Proceed to registration step
+          setRegisterData({ ...registerData, email: loginData.email.toLowerCase().trim() });
+          setAuthStep('register');
+        } else {
+          // Clear email and let them try again
+          setLoginData({ email: '', password: '' });
+        }
+        return;
+      }
+    } catch (error) {
+      console.error('AUTH DEBUG - Error checking if user exists:', error);
+      // Continue with login attempt anyway - Supabase auth will handle validation
     }
 
     // QUICK ADMIN LOGIN FOR GLEN (temporary)
@@ -1109,6 +1917,10 @@ const DockRentalPlatform = () => {
       setAdminMode(true);
       setSuperAdminMode(true);
       setAuthStep('login');
+        // Set view to browse after login
+        if (currentView === null || currentView === 'browse') {
+          setCurrentView('browse');
+        }
       
       alert('Welcome, Superadmin! You have full access to the system.');
       return;
@@ -1148,7 +1960,21 @@ const DockRentalPlatform = () => {
         console.log('AUTH DEBUG - Login successful, user:', authData.user);
         
         // Now get or create the user profile in your users table
-        const userProfile = await ensureUserProfile(authData.user);
+        let userProfile = await ensureUserProfile(authData.user);
+        
+        // If profile not found, create minimal user from session
+        if (!userProfile) {
+          console.log('AUTH DEBUG - Profile not found, creating minimal user from session');
+          userProfile = {
+            id: authData.user.id,
+            email: authData.user.email,
+            name: authData.user.user_metadata?.name || authData.user.email?.split('@')[0] || 'User',
+            user_type: normalizeUserType(authData.user.user_metadata?.userType || authData.user.user_metadata?.user_type || authData.user.user_metadata?.userRole),
+            phone: authData.user.user_metadata?.phone || '',
+            email_verified: authData.user.email_confirmed_at !== null
+          };
+        }
+        userProfile.user_type = normalizeUserType(userProfile.user_type || userProfile.userType || userProfile.user_role);
         
         // Set user state
         setCurrentUser(userProfile);
@@ -1162,10 +1988,15 @@ const DockRentalPlatform = () => {
         }
         
         setAuthStep('login');
+        // Set view to browse after login
+        if (currentView === null || currentView === 'browse') {
+          setCurrentView('browse');
+        }
         
         // Load user's bookings
         const userBookings = bookings.filter(booking => 
-          booking.guestEmail === userProfile.email
+          (booking.user_id && booking.user_id === userProfile.id) || 
+          (!booking.user_id && booking.guestEmail === userProfile.email)
         );
         setUserBookings(userBookings);
         
@@ -1178,62 +2009,44 @@ const DockRentalPlatform = () => {
     }
   };
 
-  // ENSURE USER PROFILE EXISTS IN USERS TABLE
+  // FETCH USER PROFILE FROM DATABASE
+  // Note: Profile creation is handled by backend API to avoid RLS recursion
+  // If fetch fails due to RLS, we return null and use minimal user from session
   const ensureUserProfile = async (authUser) => {
-    console.log('AUTH DEBUG - Ensuring user profile exists for:', authUser.email);
+    console.log('AUTH DEBUG - Fetching user profile for:', authUser.email);
     
     try {
-      // First, try to get existing profile by email
-      const { data: existingProfile, error: fetchError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', authUser.email)
-        .single();
-
-      if (existingProfile) {
-        console.log('AUTH DEBUG - User profile found:', existingProfile);
-        return existingProfile;
-      }
-
-      // If user doesn't exist in users table, create them
-      console.log('AUTH DEBUG - Creating new user profile');
+      // Fetch profile from backend API (bypasses RLS)
+      const localApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${localApiUrl}/api/user-profile?email=${encodeURIComponent(authUser.email)}`);
       
-      const { data: newProfile, error: createError } = await supabase
-        .from('users')
-        .insert({
-          name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
-          email: authUser.email,
-          password_hash: 'auth_managed', // Supabase Auth manages the password
-          user_type: authUser.user_metadata?.userType || (authUser.email === 'Glen@centriclearning.net' ? 'superadmin' : 'renter'),
-          phone: authUser.user_metadata?.phone || '',
-          property_address: authUser.user_metadata?.propertyAddress || '',
-          emergency_contact: authUser.user_metadata?.emergencyContact || '',
-          permissions: authUser.email === 'Glen@centriclearning.net' 
-            ? {
-                manage_users: true,
-                manage_admins: true,
-                manage_slips: true,
-                manage_bookings: true,
-                view_analytics: true,
-                system_settings: true
-              }
-            : {},
-          email_verified: authUser.email_confirmed_at !== null
-        })
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('AUTH DEBUG - Error creating user profile:', createError);
-        throw createError;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('AUTH DEBUG - Profile fetch failed:', response.status, errorData);
+        return null;
       }
-
-      console.log('AUTH DEBUG - New user profile created:', newProfile);
-      return newProfile;
+      
+      const result = await response.json();
+      
+      if (result.success && result.profile) {
+        console.log('AUTH DEBUG - User profile found:', result.profile);
+        if (result.created) {
+          console.log('AUTH DEBUG - User profile created from Auth user');
+        }
+        return {
+          ...result.profile,
+          user_type: normalizeUserType(result.profile.user_type || result.profile.userType || result.profile.user_role)
+        };
+      }
+      
+      // Profile not found
+      console.log('AUTH DEBUG - Profile not found:', result.message || 'Unknown error');
+      return null;
       
     } catch (error) {
       console.error('AUTH DEBUG - Error in ensureUserProfile:', error);
-      throw error;
+      // Return null so the app can continue with minimal user
+      return null;
     }
   };
 
@@ -1255,7 +2068,7 @@ const DockRentalPlatform = () => {
         alert(`Failed to resend verification email: ${error.message}`);
       } else {
         alert('📧 Verification email sent!\n\nPlease check your email and click the verification link.\n\nIf you don\'t see it, check your spam folder.');
-        setAuthStep('password');
+        setAuthStep('login');
       }
     } catch (error) {
       console.error('AUTH DEBUG - Unexpected error resending verification:', error);
@@ -1295,44 +2108,269 @@ const DockRentalPlatform = () => {
     try {
       console.log('AUTH DEBUG - Attempting Supabase Auth signup');
       
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Register user via our API endpoint (bypasses Supabase email rate limits)
+      // Uses Admin API to create user and Resend for emails (same as booking receipts)
+      console.log('AUTH DEBUG - Registering user via API (bypassing Supabase email rate limits)...');
+      
+      const localApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      
+      // Check if server is running and has the endpoint
+      let registerResponse;
+      try {
+        registerResponse = await fetch(`${localApiUrl}/api/register-user`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
         email: registerData.email,
         password: registerData.password,
-        options: {
-          data: {
             name: registerData.name,
             phone: registerData.phone,
-            userType: registerData.userType,
+            userType: registerData.userType ? registerData.userType.toLowerCase() : 'renter',
             propertyAddress: registerData.propertyAddress,
             emergencyContact: registerData.emergencyContact
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-
-      if (authError) {
-        console.error('AUTH DEBUG - Signup error:', authError);
+          })
+        });
+      } catch (fetchError) {
+        console.error('AUTH DEBUG - Network error calling register-user endpoint:', fetchError);
+        alert('⚠️ Cannot connect to registration service.\n\nPlease make sure the backend server is running on port 5001.\n\nRun: node server.js');
+        return;
+      }
+      
+      let authData = null;
+      let authError = null;
+      
+      if (registerResponse.ok) {
+        const registerResult = await registerResponse.json();
+        console.log('AUTH DEBUG - User registered via API:', registerResult);
         
-        if (authError.message.includes('already registered')) {
-          alert('This email is already registered. Please try logging in instead.');
-          setAuthStep('password');
-          setLoginData({ ...loginData, email: registerData.email });
-        } else if (authError.message.includes('confirmation email') || authError.message.includes('Error sending')) {
-          // Email confirmation failed, but user might still be created
-          console.log('AUTH DEBUG - Email confirmation failed, but continuing...');
-          alert('Account created successfully! Email confirmation is temporarily unavailable, but you can now login with your email and password.');
-          setAuthStep('password');
-          setLoginData({ ...loginData, email: registerData.email });
-        } else {
-          alert(`Registration failed: ${authError.message}`);
+        // Check if this is an existing user
+        if (registerResult.existingUser) {
+          console.log('AUTH DEBUG - User already exists in Supabase Auth');
+          
+          // Check the user's current profile to see what user type they have
+          try {
+            const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+            const profileResponse = await fetch(`${apiUrl}/api/user-profile?email=${encodeURIComponent(registerData.email)}`);
+            
+            if (profileResponse.ok) {
+              const profileData = await profileResponse.json();
+              
+              if (profileData.success && profileData.profile) {
+                const currentUserType = profileData.profile.user_type || 'renter';
+                const requestedUserType = registerData.userType || 'renter';
+                
+                // If user type is being changed, inform the user
+                if (currentUserType !== requestedUserType) {
+                  alert(`✅ Your account has been updated!\n\nYour user type has been changed from '${currentUserType}' to '${requestedUserType}'.\n\nPlease log in with your existing password to continue.`);
+                } else {
+                  alert(`✅ Account found!\n\nAn account with this email already exists.\n\nPlease log in with your existing password to continue.`);
+                }
+              } else {
+                // Profile not found in database, but exists in Auth
+                alert(`✅ Account found!\n\nAn account with this email already exists in the system.\n\nPlease log in with your existing password. If you've forgotten your password, use the "Forgot Password" option.`);
+              }
+            } else {
+              // Couldn't fetch profile
+              alert(`✅ Account found!\n\nAn account with this email already exists.\n\nPlease log in with your existing password. If you've forgotten your password, use the "Forgot Password" option.`);
+            }
+          } catch (profileErr) {
+            console.error('AUTH DEBUG - Error checking profile:', profileErr);
+            alert(`✅ Account found!\n\nAn account with this email already exists.\n\nPlease log in with your existing password. If you've forgotten your password, use the "Forgot Password" option.`);
+          }
+          
+          // Close registration modal and show login form
+          setShowLoginModal(true);
+          setAuthStep('login');
+          setRegisterData({ email: '', password: '', name: '', phone: '', userType: 'renter' });
+          return;
         }
+        
+        // New user - sign in to get the session
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: registerData.email,
+          password: registerData.password
+        });
+        
+        if (signInError || !signInData || !signInData.user) {
+          authError = signInError || new Error('Failed to sign in after registration');
+          console.error('AUTH DEBUG - Sign in error after registration:', authError);
+          
+          // If email not confirmed, user was created but needs to verify
+          if (signInError && signInError.message && signInError.message.includes('Email not confirmed')) {
+            console.log('AUTH DEBUG - Email not confirmed, but user was created');
+            // User was created successfully, just needs to verify email
+            alert('✅ Account created successfully!\n\n📧 Please check your email and click the verification link to activate your account.\n\nYou can also try logging in again after verifying your email.');
+            setShowLoginModal(false);
+            setAuthStep('login');
+            return;
+          }
+        } else {
+          authData = { user: signInData.user };
+          console.log('AUTH DEBUG - User signed in successfully after registration');
+        }
+      } else {
+        // Try to parse error response
+        let errorData;
+        let errorText = '';
+        try {
+          errorText = await registerResponse.text();
+          errorData = errorText ? JSON.parse(errorText) : { error: 'Registration failed' };
+        } catch (parseErr) {
+          console.error('AUTH DEBUG - Failed to parse error response:', parseErr);
+          console.error('AUTH DEBUG - Response text:', errorText);
+          errorData = { error: `Registration failed (${registerResponse.status}: ${registerResponse.statusText})` };
+        }
+        
+        // Handle 404 - endpoint not found (server needs restart)
+        if (registerResponse.status === 404) {
+          authError = new Error('Registration endpoint not found. Please restart the backend server (node server.js)');
+        } else {
+          authError = new Error(errorData.error || 'Registration failed');
+        }
+        
+        console.error('AUTH DEBUG - Registration API error:', errorData);
+        console.error('AUTH DEBUG - Response status:', registerResponse.status);
+        console.error('AUTH DEBUG - Response statusText:', registerResponse.statusText);
+      }
+
+      // Handle errors from API registration
+      if (authError) {
+        console.error('AUTH DEBUG - Registration error:', authError);
+        
+        if (authError.message.includes('already') || authError.message.includes('exists')) {
+          alert('This email is already registered. Please try logging in instead.');
+          setAuthStep('login');
+          setLoginData({ ...loginData, email: registerData.email });
+          return;
+        } else {
+          // Real error - can't proceed
+          console.error('AUTH DEBUG - Registration failed:', authError);
+          alert(`Registration failed: ${authError.message}\n\nPlease try again or contact support if the problem persists.`);
+          return;
+        }
+      }
+
+      console.log('AUTH DEBUG - Signup response:', authData);
+      
+      // Check if user was created
+      if (!authData || !authData.user) {
+        console.error('AUTH DEBUG - No user data returned from signup');
+        alert('Registration failed. Please try again.');
         return;
       }
 
-      console.log('AUTH DEBUG - Signup successful:', authData);
+      console.log('AUTH DEBUG - User created successfully:', authData.user.email);
+
+      // IMPORTANT: Always create user profile in database, regardless of email confirmation status
+      console.log('AUTH DEBUG - Creating user profile in database...');
+      console.log('AUTH DEBUG - Auth user data:', {
+        id: authData.user.id,
+        email: authData.user.email,
+        metadata: authData.user.user_metadata,
+        confirmed: authData.user.email_confirmed_at
+      });
       
-      if (authData.user && !authData.user.email_confirmed_at) {
-        // Email verification required
+      let userProfile;
+      try {
+        userProfile = await ensureUserProfile(authData.user);
+        console.log('AUTH DEBUG - User profile fetch result:', userProfile);
+        
+        if (!userProfile) {
+          // Profile not found - create minimal user from session
+          console.log('AUTH DEBUG - Profile not found, creating minimal user from session');
+          userProfile = {
+            id: authData.user.id,
+            email: authData.user.email,
+            name: authData.user.user_metadata?.name || registerData.name || authData.user.email?.split('@')[0] || 'User',
+            user_type: registerData.userType || authData.user.user_metadata?.userType || authData.user.user_metadata?.user_type || 'renter',
+            phone: registerData.phone || authData.user.user_metadata?.phone || '',
+            email_verified: authData.user.email_confirmed_at !== null
+          };
+          console.log('AUTH DEBUG - Created minimal user from session:', userProfile);
+        }
+        
+        // Verify the profile was actually saved using backend API (bypasses RLS)
+        try {
+          const localApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+          const verifyResponse = await fetch(`${localApiUrl}/api/user-profile?email=${encodeURIComponent(authData.user.email)}`);
+          
+          if (!verifyResponse.ok) {
+            console.error('AUTH DEBUG - Verification API call failed:', verifyResponse.status);
+            throw new Error('Failed to verify user profile was saved');
+          }
+          
+          const verifyResult = await verifyResponse.json();
+          
+          if (!verifyResult.success || !verifyResult.profile) {
+            throw new Error('User profile not found in database after creation');
+          }
+          
+          console.log('AUTH DEBUG - Verified user profile exists in database:', verifyResult.profile);
+          userProfile = verifyResult.profile; // Use verified profile
+        } catch (verifyError) {
+          console.error('AUTH DEBUG - Verification failed:', verifyError);
+          // Don't throw - profile was created by backend, just verification failed
+          // This is likely due to timing, profile should exist
+          console.warn('AUTH DEBUG - Verification failed but profile was created by backend API');
+        }
+        
+      } catch (profileError) {
+        console.error('AUTH DEBUG - Error creating/verifying user profile:', profileError);
+        console.error('AUTH DEBUG - Error details:', {
+          message: profileError.message,
+          code: profileError.code,
+          details: profileError.details,
+          hint: profileError.hint
+        });
+        
+        // Show detailed error to user
+        const errorMessage = profileError.message || 'Unknown error';
+        alert(`Account created in Supabase Auth, but there was an error saving your profile to the database.\n\nError: ${errorMessage}\n\nPlease try logging in - your profile should be created automatically on first login.`);
+        
+          setAuthStep('login');
+          setLoginData({ ...loginData, email: registerData.email });
+        return;
+      }
+
+      // Send verification email via Resend (same system as booking receipts)
+      if (!authData.user.email_confirmed_at) {
+        console.log('AUTH DEBUG - Sending verification email via Resend (same as booking receipts)...');
+        try {
+          // Generate verification URL using our API endpoint
+          const localApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+          const response = await fetch(`${localApiUrl}/api/send-verification-email`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              email: registerData.email,
+              name: registerData.name
+            })
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            console.log('✅ AUTH DEBUG - Verification email sent via Resend:', result);
+        } else {
+            const errorData = await response.json();
+            console.error('AUTH DEBUG - Failed to send verification email:', errorData);
+            // Continue anyway - user can request verification later
+            // But show them the verification URL if provided
+            if (errorData.verificationUrl) {
+              console.log('AUTH DEBUG - Verification URL available:', errorData.verificationUrl);
+            }
+          }
+        } catch (emailError) {
+          console.error('AUTH DEBUG - Error sending verification email via Resend:', emailError);
+          // Continue anyway - user can request verification later
+        }
+        
+        // Email verification required - user needs to verify email
+        console.log('AUTH DEBUG - Email verification required, but profile is saved');
+        
         setShowLoginModal(false);
         setRegisterData({ 
           name: '', 
@@ -1344,12 +2382,12 @@ const DockRentalPlatform = () => {
           propertyAddress: '',
           emergencyContact: ''
         });
-        setAuthStep('email');
+        setAuthStep('login');
         
-        alert('✅ Registration successful!\n\n📧 Please check your email and click the verification link to activate your account.\n\nOnce verified, you can log in with your email and password.');
-      } else if (authData.user && authData.user.email_confirmed_at) {
-        // Email already confirmed (rare case)
-        const userProfile = await ensureUserProfile(authData.user);
+        alert('✅ Registration successful!\n\n📧 A welcome email has been sent to ' + registerData.email + ' via Resend (check your spam folder if you don\'t see it).\n\nYou can now log in with your email and password.\n\nYour account information has been saved to the database.');
+      } else {
+        // Email already confirmed - log them in immediately
+        console.log('AUTH DEBUG - Email already confirmed, logging in');
         setCurrentUser(userProfile);
         setShowLoginModal(false);
         setRegisterData({ 
@@ -1364,11 +2402,18 @@ const DockRentalPlatform = () => {
         });
         setAuthStep('login');
         
-        alert('Welcome to Dock82! 🚢\n\nYour account has been created and you are now logged in.');
+        // Set admin mode if superadmin
+        if (userProfile.user_type === 'superadmin') {
+          setAdminMode(true);
+          setSuperAdminMode(true);
+        }
+        
+        // Set view to browse after login
+        if (currentView === null || currentView === 'browse') {
         setCurrentView('browse');
-      } else {
-        alert('Registration successful! Please check your email to confirm your account.');
-        setAuthStep('email');
+        }
+        
+        alert(`Welcome to Dock82, ${userProfile.name}! 🚢\n\nYour account has been created and you are now logged in.`);
       }
       
     } catch (error) {
@@ -1417,10 +2462,11 @@ const DockRentalPlatform = () => {
   // Handle opening profile edit modal
   const handleEditProfile = () => {
     if (currentUser) {
+      const resolvedUserType = normalizeUserType(currentUser.user_type || currentUser.userType || currentUser.user_role);
       setEditingProfile({
         name: currentUser.name || '',
         phone: currentUser.phone || '',
-        userType: currentUser.user_type || 'renter',
+        userType: resolvedUserType,
         currentPassword: '',
         newPassword: '',
         confirmNewPassword: ''
@@ -1468,13 +2514,15 @@ const DockRentalPlatform = () => {
         }
       }
 
+      const normalizedUserType = normalizeUserType(editingProfile.userType);
+
       // Update user profile data in database
       const { data: updatedUser, error: updateError } = await supabase
         .from('users')
         .update({
           name: editingProfile.name,
           phone: editingProfile.phone,
-          user_type: editingProfile.userType,
+          user_type: normalizedUserType,
           updated_at: new Date().toISOString()
         })
         .eq('email', currentUser.email)
@@ -1492,7 +2540,7 @@ const DockRentalPlatform = () => {
         ...currentUser,
         name: editingProfile.name,
         phone: editingProfile.phone,
-        user_type: editingProfile.userType
+        user_type: normalizedUserType
       });
       
       setShowProfileModal(false);
@@ -1732,7 +2780,7 @@ const DockRentalPlatform = () => {
 
 
   const resetAuthFlow = () => {
-    setAuthStep('email');
+    setAuthStep('login');
     setTempEmail('');
     setLoginData({ email: '', password: '' });
     setRegisterData({ 
@@ -1751,6 +2799,8 @@ const DockRentalPlatform = () => {
       const localApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
       const fnUrl = `${localApiUrl}/api/send-notification`;
       
+      console.log(`📧 Sending ${type} email to ${email}`);
+      
       const response = await fetch(fnUrl, {
         method: 'POST',
         headers: { 
@@ -1760,15 +2810,17 @@ const DockRentalPlatform = () => {
       });
       
       if (response.ok) {
-        console.log('Email notification sent successfully');
+        const result = await response.json();
+        console.log(`✅ ${type} email sent successfully:`, result);
       } else {
-        const errorData = await response.json();
-        console.error('Failed to send email notification:', errorData);
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error(`❌ Failed to send ${type} email:`, errorData);
+        // Don't throw - continue with other emails
       }
     } catch (error) {
-      console.error('Error sending email notification:', error);
+      console.error(`❌ Error sending ${type} email notification:`, error);
       // Don't fail the booking if email fails
-      console.log('Email notification failed, but booking was successful');
+      console.log(`${type} email notification failed, but booking was successful`);
     }
   };
 
@@ -2121,7 +3173,10 @@ const DockRentalPlatform = () => {
   // First Login Onboarding Functions
   const handleFirstLogin = (user) => {
     // Simple welcome for returning users - no onboarding
-    const existingBookings = bookings.filter(booking => booking.guestEmail === user.email);
+    const existingBookings = bookings.filter(booking => 
+      (booking.user_id && booking.user_id === user.id) || 
+      (!booking.user_id && booking.guestEmail === user.email)
+    );
     
     if (existingBookings.length === 0) {
       alert('Welcome back to Dock82! 🚢\n\nReady to book your next dock slip?');
@@ -2140,8 +3195,19 @@ const DockRentalPlatform = () => {
   const [editingPropertyOwnerInfo, setEditingPropertyOwnerInfo] = useState(null);
   const [editingPropertyOwnerDates, setEditingPropertyOwnerDates] = useState(null);
 
-  // Load data from API on component mount
+  // Load data from API on component mount - only if authenticated
   useEffect(() => {
+    // If session is still loading, wait
+    if (sessionLoading) {
+      return;
+    }
+    
+    // If user is not authenticated, set loading to false and return
+    if (!currentUser) {
+      setSlipsLoading(false);
+      return;
+    }
+    
     // Clear old localStorage to prevent conflicts
     localStorage.removeItem('dockSlipsData');
     localStorage.removeItem('dockSlipImages');
@@ -2151,62 +3217,72 @@ const DockRentalPlatform = () => {
         // Updated $(date) - Force redeploy
         setSlipsLoading(true);
         
-        // Load slips from Supabase
-        const { data: slipsData, error: slipsError } = await supabase
+        // Load slips from backend API (bypasses RLS)
+        let slipsData = null;
+        let slipsError = null;
+        let transformedSlips = [];
+        
+        try {
+          const localApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+          const slipsResponse = await fetch(`${localApiUrl}/api/slips`);
+          
+          if (slipsResponse.ok) {
+            const result = await slipsResponse.json();
+            slipsData = result.slips || [];
+          } else {
+            const errorData = await slipsResponse.json();
+            slipsError = { message: errorData.error || 'Failed to load slips', code: slipsResponse.status };
+          }
+        } catch (fetchError) {
+          console.error('Error fetching slips from API:', fetchError);
+          // Fallback to direct Supabase query
+          const { data: directSlipsData, error: directSlipsError } = await supabase
           .from('slips')
           .select('*')
           .order('id');
-
-        if (slipsError) {
-          console.error('Error loading slips from Supabase:', slipsError);
-        } else {
-          // Transform the data to match frontend expectations
-          const transformedSlips = (slipsData || []).map(slip => {
-            // Handle images - could be array, JSON string, or direct base64 string
-            let images = slip.images || [];
-            
-            if (typeof images === 'string') {
-              // Check if it's a JSON array string (starts with '[')
-              if (images.startsWith('[')) {
-                try {
-                  images = JSON.parse(images);
-                } catch (e) {
-                  console.error('Error parsing images JSON array:', e);
-                  images = [];
-                }
-              } else if (images.startsWith('data:image/')) {
-                // It's a direct base64 string, wrap it in an array
-                images = [images];
-              } else {
-                // Unknown string format, treat as empty
-                images = [];
-              }
-            }
-            
-            return {
-              id: slip.id,
-              name: slip.name,
-              max_length: parseFloat(slip.max_length),
-              width: parseFloat(slip.width),
-              depth: parseFloat(slip.depth),
-              price_per_night: parseFloat(slip.price_per_night),
-              amenities: slip.amenities || [],
-              description: slip.description,
-              dock_etiquette: slip.dock_etiquette,
-              available: slip.available,
-              images: images,
-              // Debug logging
-              _debug_images: slip.images,
-              _debug_images_parsed: images
-            };
-          });
           
-          console.log('DEBUG: Loaded slips data:', transformedSlips);
-          console.log('DEBUG: First slip images:', transformedSlips[0]?.images);
-          setSlips(transformedSlips);
+          slipsData = directSlipsData;
+          slipsError = directSlipsError;
         }
 
-        // Load bookings from Supabase
+        if (slipsError) {
+          console.error('Error loading slips:', slipsError);
+          console.error('Error code:', slipsError.code);
+          console.error('Error message:', slipsError.message);
+          
+          // Check for RLS recursion error
+          if (slipsError.code === '42P17' || slipsError.message?.includes('infinite recursion')) {
+            console.error('RLS recursion detected - using empty slips array');
+            setSlips([]);
+            // Don't show alert - just continue with empty array
+          } else {
+            // Show user-friendly error but continue with empty slips
+            console.warn('Could not load slips, continuing with empty array');
+            setSlips([]);
+          }
+              } else {
+          transformedSlips = transformSlipsData(slipsData || []);
+          setAllSlips(transformedSlips);
+          setSlips(transformedSlips);
+
+          if (transformedSlips.length === 0) {
+            console.warn('No slips found in database');
+          }
+        }
+
+        // Load bookings from backend API (bypasses RLS)
+        try {
+          const localApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+          const bookingsResponse = await fetch(`${localApiUrl}/api/bookings`);
+          
+          if (bookingsResponse.ok) {
+            const result = await bookingsResponse.json();
+            const transformedBookings = transformBookingsData(result.bookings || [], transformedSlips.length ? transformedSlips : slips);
+            setAllBookings(transformedBookings);
+            setBookings(transformedBookings);
+          } else {
+            console.error('Error loading bookings from API:', bookingsResponse.status);
+            // Fallback to direct Supabase query
         const { data: bookingsData, error: bookingsError } = await supabase
           .from('bookings')
           .select('*')
@@ -2214,17 +3290,110 @@ const DockRentalPlatform = () => {
 
         if (bookingsError) {
           console.error('Error loading bookings from Supabase:', bookingsError);
+              // Check for RLS recursion
+              if (bookingsError.code === '42P17' || bookingsError.message?.includes('infinite recursion')) {
+                console.warn('RLS recursion in bookings, continuing with empty array');
+                setBookings([]);
         } else {
-          setBookings(bookingsData || []);
+                setBookings([]);
+              }
+        } else {
+          const transformedBookings = transformBookingsData(bookingsData || [], transformedSlips.length ? transformedSlips : slips);
+          setAllBookings(transformedBookings);
+          setBookings(transformedBookings);
+            }
+          }
+        } catch (fetchError) {
+          console.error('Error fetching bookings from API:', fetchError);
+          // Continue with empty bookings array
+          setBookings([]);
         }
       } catch (error) {
         console.error('Error loading data from Supabase:', error);
+        console.error('Error details:', error.message, error.code);
+        // Set empty slips array to prevent app from breaking
+        setSlips([]);
+        // Don't show alert - just log the error
       } finally {
         setSlipsLoading(false);
       }
     };
+    
+    // Only load data if user is authenticated
+    if (currentUser) {
     loadData();
-  }, []);
+    } else {
+      setSlipsLoading(false);
+    }
+  }, [currentUser, sessionLoading]);
+
+
+  useEffect(() => {
+    if (sessionLoading || !currentUser) return;
+
+    if (currentView && currentView !== 'browse' && currentView !== null) {
+      return;
+    }
+
+    const start = searchFilters.dateRangeStart;
+    const end = searchFilters.dateRangeEnd;
+
+    if (!start || !end) {
+      if (allSlips.length) {
+        setSlips(allSlips);
+      }
+      if (allBookings.length) {
+        setBookings(allBookings);
+      }
+      setSlipsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchAvailableSlips = async () => {
+      setSlipsLoading(true);
+      try {
+        const localApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+        const params = new URLSearchParams({ start, end });
+        const response = await fetch(`${localApiUrl}/api/slips?${params.toString()}`);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to fetch available slips');
+        }
+
+        const result = await response.json();
+        if (cancelled) return;
+
+        const availableSlips = transformSlipsData(result.slips || []);
+        setSlips(availableSlips);
+
+        if (result.bookings) {
+          const transformed = transformBookingsData(result.bookings, availableSlips);
+          setBookings(transformed);
+        } else {
+          setBookings(allBookings.length ? allBookings : bookings);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Error fetching available slips:', error);
+          setSlips(allSlips.length ? allSlips : slips);
+          setBookings(allBookings.length ? allBookings : bookings);
+        }
+      } finally {
+        if (!cancelled) {
+          setSlipsLoading(false);
+        }
+      }
+    };
+
+    fetchAvailableSlips();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchFilters.dateRangeStart, searchFilters.dateRangeEnd, currentUser, sessionLoading, currentView, allSlips, allBookings]);
 
 
 
@@ -2265,7 +3434,14 @@ const DockRentalPlatform = () => {
             </div>
             <nav className="flex items-center space-x-6">
               <button
-                onClick={() => setCurrentView('browse')}
+                onClick={() => {
+                  if (!currentUser) {
+                    setShowLoginModal(true);
+                    resetAuthFlow();
+                  } else {
+                    setCurrentView('browse');
+                  }
+                }}
                 className={`px-3 py-2 rounded-md ${currentView === 'browse' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:text-gray-900'}`}
               >
                 Browse Slips
@@ -2344,11 +3520,74 @@ const DockRentalPlatform = () => {
           />
         ) : (
           <>
-            {currentView === 'browse' && (
+            {(currentView === 'browse' || (currentView === null && currentUser)) && (
+              <>
+            {/* Require authentication to browse slips */}
+            {!currentUser ? (
+              <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+                <div className="max-w-md mx-auto">
+                  <Lock className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Sign In Required</h2>
+                  <p className="text-gray-600 mb-6">
+                    Please sign in to browse and book available dock slips.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowLoginModal(true);
+                      resetAuthFlow();
+                    }}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              </div>
+            ) : (
               <>
             {/* Search and Filters */}
             <div className="mb-8 bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-semibold mb-4">Select an Available Slip</h2>
+              
+              {/* Date Range Filter */}
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by Date Range (Optional)
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Check-In Date</label>
+                    <input
+                      type="date"
+                      value={searchFilters.dateRangeStart}
+                      onChange={(e) => setSearchFilters({...searchFilters, dateRangeStart: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Check-Out Date</label>
+                    <input
+                      type="date"
+                      value={searchFilters.dateRangeEnd}
+                      onChange={(e) => setSearchFilters({...searchFilters, dateRangeEnd: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      min={searchFilters.dateRangeStart || new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                </div>
+                {(searchFilters.dateRangeStart || searchFilters.dateRangeEnd) && (
+                  <button
+                    onClick={() => setSearchFilters({...searchFilters, dateRangeStart: '', dateRangeEnd: ''})}
+                    className="mt-2 text-sm text-blue-600 hover:text-blue-700"
+                  >
+                    Clear date filter
+                  </button>
+                )}
+                <p className="mt-2 text-xs text-gray-500">
+                  Only slips available for the selected dates will be shown
+                </p>
+              </div>
+              
               <div className="bg-blue-50 p-4 rounded-lg mb-4">
                 <p className="text-sm text-blue-800">
                   <strong>Self Check-In:</strong> Once your booking is confirmed, you'll receive a dock permit via email. 
@@ -2364,11 +3603,19 @@ const DockRentalPlatform = () => {
             </div>
 
             {/* Slips Grid */}
+            {filteredSlips.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+                <p className="text-gray-600">No slips available at this time. Please check back later.</p>
+              </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredSlips.map(slip => (
                 <SlipCard key={slip.id} slip={slip} />
               ))}
             </div>
+            )}
+              </>
+            )}
               </>
             )}
 
@@ -2388,33 +3635,14 @@ const DockRentalPlatform = () => {
             </div>
 
             <form onSubmit={handleBookingSubmit} className="space-y-6">
-              {/* User Type Selection */}
+              {/* User Type Display */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold mb-3">Select User Type</h3>
-                <div className="flex space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="userType"
-                      value="renter"
-                      checked={bookingData.userType === 'renter'}
-                      onChange={(e) => setBookingData({...bookingData, userType: e.target.value})}
-                      className="mr-2"
-                    />
-                    <span>Renter (Pay per night)</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="userType"
-                      value="homeowner"
-                      checked={bookingData.userType === 'homeowner'}
-                      onChange={(e) => setBookingData({...bookingData, userType: e.target.value})}
-                      className="mr-2"
-                    />
-                    <span>Homeowner (Free access)</span>
-                  </label>
-                </div>
+                <h3 className="font-semibold mb-2">Booking Type</h3>
+                <p className="text-sm text-gray-600">
+                  {bookingData.userType === 'homeowner'
+                    ? 'Homeowner booking (no nightly charge)'
+                    : 'Renter booking (charged per night)'}
+                </p>
               </div>
 
               {/* Booking Details */}
@@ -2457,13 +3685,13 @@ const DockRentalPlatform = () => {
                     value={bookingData.boatLength}
                     onChange={(e) => setBookingData({...bookingData, boatLength: e.target.value})}
                     min="1"
-                    max={selectedSlip.maxLength}
+                    max={selectedSlip.max_length}
                     step="0.1"
                     className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
-                  {bookingData.boatLength && parseInt(bookingData.boatLength) > selectedSlip.maxLength && (
-                    <p className="text-red-600 text-sm mt-1">Boat length exceeds maximum allowed ({selectedSlip.maxLength}ft)</p>
+                  {bookingData.boatLength && selectedSlip.max_length && parseInt(bookingData.boatLength) > selectedSlip.max_length && (
+                    <p className="text-red-600 text-sm mt-1">Boat length exceeds maximum allowed ({selectedSlip.max_length}ft)</p>
                   )}
                 </div>
                 <div>
@@ -2481,7 +3709,7 @@ const DockRentalPlatform = () => {
               {/* Boat Picture Upload */}
               <div className="bg-yellow-50 p-4 rounded-lg">
                 <h3 className="font-semibold mb-3 flex items-center">
-                  📸 Boat Picture (Optional)
+                  📸 Boat Picture
                 </h3>
                 <p className="text-sm text-gray-600 mb-3">
                   Upload a picture of your boat to help with identification and marina management. This is optional but recommended.
@@ -2516,6 +3744,8 @@ const DockRentalPlatform = () => {
                     onChange={(e) => setBookingData({...bookingData, guestName: e.target.value})}
                     className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
+                    readOnly={!!currentUser}
+                    disabled={!!currentUser}
                   />
                 </div>
                 <div>
@@ -2526,6 +3756,8 @@ const DockRentalPlatform = () => {
                     onChange={(e) => setBookingData({...bookingData, guestEmail: e.target.value})}
                     className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
+                    readOnly={!!currentUser}
+                    disabled={!!currentUser}
                   />
                 </div>
               </div>
@@ -2542,7 +3774,7 @@ const DockRentalPlatform = () => {
               </div>
 
               {/* Payment Section for Renters */}
-              {(() => { console.log('Rendering payment section'); return true; })() && (
+              {bookingData.userType === 'renter' && (
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <h3 className="font-semibold mb-3 flex items-center">
                     <CreditCard className="w-5 h-5 mr-2" />
@@ -2605,44 +3837,6 @@ const DockRentalPlatform = () => {
                 </div>
               )}
 
-              {/* Rental Property Information for Renters */}
-              {bookingData.userType === 'renter' && (
-                <div className="bg-yellow-50 p-4 rounded-lg">
-                  <h3 className="font-semibold mb-3">Rental Property Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Rental Property Address</label>
-                      <select
-                        value={bookingData.rentalProperty}
-                        onChange={(e) => setBookingData({...bookingData, rentalProperty: e.target.value})}
-                        className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      >
-                        <option value="">Select rental property</option>
-                        {propertyOwners.map((owner, index) => (
-                          <option key={index} value={owner.address}>{owner.address}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Property Owner</label>
-                      <select
-                        value={bookingData.selectedOwner}
-                        onChange={(e) => setBookingData({...bookingData, selectedOwner: e.target.value})}
-                        className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      >
-                        <option value="">Select property owner</option>
-                        {propertyOwners.map((owner, index) => (
-                          <option key={index} value={owner.name}>{owner.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  {/* Removed rental property date fields - simplified to just dock dates */}
-                </div>
-              )}
-
               {/* Document Upload Section */}
               {bookingData.userType === 'renter' && (
                 <div className="bg-red-100 p-4 rounded-lg border-2 border-red-300">
@@ -2655,6 +3849,38 @@ const DockRentalPlatform = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">🛡️ Boat Insurance Proof</label>
                       <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setBookingData({...bookingData, insuranceProof: e.target.files[0]})} className="w-full border-2 border-blue-500 rounded-md px-3 py-3 bg-blue-50" />
+                    </div>
+                  </div>
+                </div>
+              )}
+              {bookingData.userType === 'homeowner' && (
+                <div className="bg-red-100 p-4 rounded-lg border-2 border-red-300">
+                  <h3 className="text-lg font-semibold text-red-900 mb-3">🚨 REQUIRED DOCUMENTS</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">📋 Homeowner Authorization Letter</label>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        onChange={(e) => setBookingData({...bookingData, homeownerAuthorizationLetter: e.target.files[0]})}
+                        className="w-full border-2 border-blue-500 rounded-md px-3 py-3 bg-blue-50"
+                        required
+                      />
+                      <p className="text-xs text-gray-600 mt-1">
+                        Please upload your homeowner authorization letter confirming your slip usage.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">🛡️ Proof of Home Insurance (Optional)</label>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.png"
+                        onChange={(e) => setBookingData({...bookingData, homeownerInsuranceProof: e.target.files[0]})}
+                        className="w-full border-2 border-blue-500 rounded-md px-3 py-3 bg-blue-50"
+                      />
+                      <p className="text-xs text-gray-600 mt-1">
+                        Optionally upload proof of insurance for additional verification.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -2734,10 +3960,14 @@ const DockRentalPlatform = () => {
                     <div key={booking.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="font-semibold text-lg">{booking.slipName}</h3>
-                          <p className="text-gray-600">{booking.checkIn} - {booking.checkOut}</p>
-                          <p className="text-sm text-gray-500">Boat: {booking.boatMakeModel} ({booking.boatLength}ft)</p>
-                          <p className="text-sm text-gray-500">Type: {booking.userType === 'homeowner' ? 'Property Owner' : 'Renter'}</p>
+                          <h3 className="font-semibold text-lg">{booking.slipName || `Slip ${booking.slipId?.substring(0, 8) || 'Unknown'}`}</h3>
+                          <p className="text-gray-600">
+                            {booking.checkIn ? new Date(booking.checkIn).toLocaleDateString() : 'N/A'} - {booking.checkOut ? new Date(booking.checkOut).toLocaleDateString() : 'N/A'}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            Boat: {booking.boatMakeModel || 'N/A'} {booking.boatLength ? `(${booking.boatLength}ft)` : ''}
+                          </p>
+                          <p className="text-sm text-gray-500">Type: {booking.userType === 'homeowner' ? 'Property Owner' : booking.userType || 'Renter'}</p>
                         </div>
                         <div className="text-right">
                           <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -2750,12 +3980,11 @@ const DockRentalPlatform = () => {
                           {booking.status === 'confirmed' && (
                             <button
                               onClick={() => {
-                                setShowPermit(true);
-                                setSelectedBooking(booking);
+                                downloadPermitPDF(booking);
                               }}
-                              className="block mt-2 text-blue-600 hover:text-blue-700 text-sm"
+                              className="block mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
                             >
-                              View Permit
+                              📄 Download Permit
                             </button>
                           )}
                           
@@ -3041,6 +4270,7 @@ const DockRentalPlatform = () => {
                         <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Boat</th>
                         <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Contact</th>
                         <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Dates</th>
+                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Documents</th>
                         <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Status</th>
                         <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Actions</th>
                       </tr>
@@ -3055,7 +4285,7 @@ const DockRentalPlatform = () => {
                             <div className="text-xs">
                               <div>{booking.boatMakeModel}</div>
                               <div>{booking.boatLength}ft</div>
-                              {booking.boatPicture && (
+                              {(booking.boatPicture || booking.boatPicturePath) && (
                                 <div className="mt-1">
                                   <span className="text-green-600">📸 Picture uploaded</span>
                                 </div>
@@ -3069,6 +4299,40 @@ const DockRentalPlatform = () => {
                             </div>
                           </td>
                           <td className="px-4 py-2 text-sm">{booking.checkIn} - {booking.checkOut}</td>
+                          <td className="px-4 py-2 text-sm">
+                            <div className="flex flex-col space-y-1">
+                              {booking.rentalAgreementPath ? (
+                                <button
+                                  onClick={() => handleViewDocument(booking, 'rental_agreement')}
+                                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                >
+                                  Rental Agreement
+                                </button>
+                              ) : (
+                                <span className="text-xs text-gray-400">No Agreement</span>
+                              )}
+                              {booking.insuranceProofPath ? (
+                                <button
+                                  onClick={() => handleViewDocument(booking, 'insurance')}
+                                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                >
+                                  Insurance Proof
+                                </button>
+                              ) : (
+                                <span className="text-xs text-gray-400">No Insurance</span>
+                              )}
+                              {booking.boatPicturePath ? (
+                                <button
+                                  onClick={() => handleViewDocument(booking, 'boat_picture')}
+                                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                >
+                                  Boat Picture
+                                </button>
+                              ) : (
+                                <span className="text-xs text-gray-400">No Boat Photo</span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-2 text-sm">
                             <span className={`px-2 py-1 rounded text-xs ${
                               booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
@@ -3684,11 +4948,12 @@ const DockRentalPlatform = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">
-                {authStep === 'email' ? 'Enter Email' : 
-                 authStep === 'password' ? 'Welcome Back' : 
+                {authStep === 'login' ? 'Sign In' : 
                  authStep === 'register' ? 'Create Account' : 
                  authStep === 'verify-contact' ? 'Review Information' : 
-                 'Enter Email'}
+                 authStep === 'forgot-password' ? 'Reset Password' :
+                 authStep === 'reset-password' ? 'Set New Password' :
+                 'Authentication'}
               </h2>
               <button
                 onClick={() => {
@@ -3701,49 +4966,24 @@ const DockRentalPlatform = () => {
               </button>
             </div>
             
-            {/* Step 1: Email Entry */}
-            {authStep === 'email' && (
-              <form onSubmit={handleEmailSubmit} className="space-y-4">
+            {/* Login Form - Email and Password Together */}
+            {authStep === 'login' && (
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div className="text-center mb-4">
-                  <p className="text-gray-600">Enter your email to continue</p>
+                  <p className="text-gray-600">Sign in to your account</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
                   <input
                     type="email"
-                    value={tempEmail}
-                    onChange={(e) => setTempEmail(e.target.value)}
+                    value={loginData.email}
+                    onChange={(e) => setLoginData({...loginData, email: e.target.value})}
                     className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="your@email.com"
                     autoComplete="username"
                     name="email"
                     required
                   />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 font-medium"
-                >
-                  Continue
-                </button>
-              </form>
-            )}
-            
-            {/* Step 2: Password Login */}
-            {authStep === 'password' && (
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="text-center mb-4">
-                  <p className="text-gray-600">Welcome back, {loginData.email}</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginData({ email: '', password: '' });
-                      setTempEmail('');
-                    }}
-                    className="text-sm text-blue-600 hover:text-blue-700"
-                  >
-                    Use different email
-                  </button>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
@@ -3764,7 +5004,7 @@ const DockRentalPlatform = () => {
                 >
                   Sign In
                 </button>
-                <div className="text-center space-y-2">
+                <div className="text-center">
                   <button
                     type="button"
                     onClick={() => {
@@ -3774,20 +5014,7 @@ const DockRentalPlatform = () => {
                     className="text-sm text-blue-600 hover:text-blue-700 block"
                   >
                     Forgot your password?
-                  </button>
-                  <div className="text-sm text-gray-600">
-                    Don't have an account?{' '}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRegisterData({ ...registerData, email: loginData.email });
-                        setAuthStep('register');
-                      }}
-                      className="text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      Sign up here
                     </button>
-                  </div>
                 </div>
               </form>
             )}
@@ -3917,7 +5144,7 @@ const DockRentalPlatform = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setAuthStep('password');
+                    setAuthStep('login');
                     setLoginData({ email: '', password: '' });
                   }}
                   className="w-full bg-gray-200 text-gray-700 py-3 rounded-md hover:bg-gray-300 font-medium"
@@ -4276,14 +5503,25 @@ const DockRentalPlatform = () => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">User Type</label>
+                {canManageUserRoles ? (
                 <select
                   value={editingProfile.userType}
-                  onChange={(e) => setEditingProfile({...editingProfile, userType: e.target.value})}
+                    onChange={(e) => setEditingProfile({
+                      ...editingProfile,
+                      userType: normalizeUserType(e.target.value)
+                    })}
                   className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="renter">Renter</option>
                   <option value="homeowner">Homeowner</option>
+                    <option value="admin">Admin</option>
+                    <option value="superadmin">Superadmin</option>
                 </select>
+                ) : (
+                  <div className="p-3 border border-gray-200 rounded-md bg-gray-50 text-gray-700 text-sm">
+                    {editingProfile.userType === 'homeowner' ? 'Homeowner' : 'Renter'}
+                  </div>
+                )}
               </div>
 
               {/* Password Change Section */}

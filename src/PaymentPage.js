@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { supabase } from './supabase';
 
 const stripePromise = loadStripe(
   process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_51SG5p53j9XCjmWOGSpK1ex75CbbmwN01r6RbOZ2QKgoWZ7Q6K1gEu12OgUhgSb2ur6LoBJSOA7V2K9zS0WhbPwJk00l16UUppK'
@@ -97,13 +96,14 @@ const PaymentPage = ({ bookingData, selectedSlip, onPaymentComplete, onBack }) =
     return days === 30 ? baseTotal * 0.6 : baseTotal;
   };
 
-   useEffect(() => {
-     const createPaymentIntent = async () => {
-       try {
-         const totalAmount = calculateTotal();
-         console.log('Creating payment intent for amount:', totalAmount);
-         const localApiUrl = process.env.REACT_APP_API_URL;
-         const fnUrl = `${localApiUrl || supabase.functions.url}/api/create-payment-intent`;
+  useEffect(() => {
+    const createPaymentIntent = async () => {
+      try {
+        const totalAmount = calculateTotal();
+        console.log('Creating payment intent for amount:', totalAmount);
+        // Use REACT_APP_API_URL if set, otherwise default to localhost:5001
+        const localApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+        const fnUrl = `${localApiUrl}/api/create-payment-intent`;
 
          const resp = await fetch(fnUrl, {
            method: 'POST',

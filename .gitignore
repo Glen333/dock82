@@ -8,6 +8,9 @@ yarn-error.log*
 build/
 dist/
 
+# Deployment archives
+dock82-backend*.zip
+
 # Environment variables
 .env
 .env.local
